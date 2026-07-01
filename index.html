@@ -874,21 +874,13 @@
         // Abre WhatsApp Escritorio directamente con el mensaje precargado.
         // Usa el esquema whatsapp:// en vez de https://wa.me para evitar la
         // página intermedia "Compartir en WhatsApp" del navegador.
-     function abrirWhatsApp(encoded) {
-            const waUrl = `whatsapp://send?text=${encoded}`;
-            const fallbackUrl = `https://wa.me/?text=${encoded}`;
-            let opened = false;
-            const marcarAbierto = () => { opened = true; };
-            document.addEventListener('visibilitychange', marcarAbierto);
-            window.addEventListener('blur', marcarAbierto);
-            window.location.href = waUrl;
-            setTimeout(() => {
-                document.removeEventListener('visibilitychange', marcarAbierto);
-                window.removeEventListener('blur', marcarAbierto);
-                if (!opened) {
-                    window.open(fallbackUrl, '_blank');
-                }
-            }, 1200);
+function abrirWhatsApp(encoded) {
+            const esMac = /Mac/i.test(navigator.platform) || /Macintosh/i.test(navigator.userAgent);
+            if (esMac) {
+                window.location.href = `whatsapp://send?text=${encoded}`;
+            } else {
+                window.open(`https://wa.me/?text=${encoded}`, '_blank');
+            }
         }
 
         function compressImage(dataUrl, maxWidth = 1200, quality = 0.7) {
