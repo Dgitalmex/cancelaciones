@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CANCELACIONES V2.1</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCGoj6svi5Na7xoZU9asJZ0xf4qBd37ys8",
+            authDomain: "depo-cancelaciones.firebaseapp.com",
+            projectId: "depo-cancelaciones",
+            messagingSenderId: "100864778072",
+            appId: "1:100864778072:web:5d8b0d1b0768431cb5cf2d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        // Enable offline persistence
+        enableIndexedDbPersistence(db).catch(err => {
+            if (err.code === 'failed-precondition') {
+                console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+            } else if (err.code === 'unimplemented') {
+                console.warn('Browser does not support offline persistence');
+            }
+        });
+
+        window.firebaseDB = db;
+        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy };
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background: #f5f7fa; min-height: 100vh; color: #2c3e50; }
+        .app-container { max-width: 1400px; margin: 0 auto; background: #ffffff; min-height: 100vh; box-shadow: 0 0 40px rgba(0,0,0,0.06); }
+        .app-header { background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%); color: white; padding: 20px 30px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(26, 35, 126, 0.3); }
+        .app-brand { display: flex; align-items: center; gap: 15px; }
+        .app-logo { width: 45px; height: 45px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; border: 2px solid rgba(255,255,255,0.3); }
+        .app-title { font-size: 1.3rem; font-weight: 700; letter-spacing: 1px; }
+        .app-subtitle { font-size: 0.7rem; opacity: 0.7; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; }
+        .app-version { background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 1px; border: 1px solid rgba(255,255,255,0.2); }
+        .navbar { background: #ffffff; border-bottom: 1px solid #e8ecf1; padding: 0 30px; position: sticky; top: 85px; z-index: 99; }
+        .nav-tabs { display: flex; gap: 0; }
+        .nav-tab { padding: 16px 28px; cursor: pointer; border: none; background: transparent; color: #6b7c93; font-size: 0.85rem; font-weight: 600; white-space: nowrap; transition: all 0.3s; position: relative; border-bottom: 3px solid transparent; letter-spacing: 0.5px; text-transform: uppercase; }
+        .nav-tab:hover { color: #1a237e; background: rgba(26, 35, 126, 0.03); }
+        .nav-tab.active { color: #1a237e; border-bottom-color: #1a237e; background: rgba(26, 35, 126, 0.05); }
+        .section { display: none; padding: 30px; animation: fadeIn 0.4s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .section-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eef2f7; }
+        .section-title { font-size: 1.15rem; color: #1a237e; font-weight: 700; display: flex; align-items: center; gap: 10px; letter-spacing: 0.3px; }
+        .section-desc { color: #6b7c93; font-size: 0.85rem; margin-top: 5px; margin-left: 30px; }
+        .card { background: #ffffff; border-radius: 12px; border: 1px solid #e8ecf1; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); transition: box-shadow 0.3s; }
+        .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f0f2f5; }
+        .card-header h3 { font-size: 0.95rem; color: #2c3e50; font-weight: 600; }
+        .card-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem; }
+        .table-container { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e8ecf1; }
+        table { width: 100%; border-collapse: collapse; background: white; min-width: 900px; }
+        th { background: #1a237e; color: white; padding: 14px 10px; text-align: left; font-weight: 600; font-size: 0.75rem; position: sticky; top: 0; letter-spacing: 0.5px; text-transform: uppercase; }
+        td { padding: 10px; border-bottom: 1px solid #f0f2f5; font-size: 0.85rem; vertical-align: middle; color: #2c3e50; }
+        tr:hover { background: #f8f9fc; }
+        td input, td select, td textarea { width: 100%; border: 1px solid #d1d8e0; border-radius: 6px; padding: 8px 10px; font-size: 0.85rem; font-family: inherit; color: #2c3e50; transition: all 0.2s; }
+        td input:focus, td select:focus, td textarea:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.08); }
+        td textarea { resize: vertical; min-height: 35px; }
+        td select { cursor: pointer; background: white; }
+        .ticket-thumb { width: 55px; height: 55px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #e8ecf1; transition: all 0.3s; }
+        .ticket-thumb:hover { border-color: #1a237e; transform: scale(1.08); }
+        .delete-row { background: #c62828; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .delete-row:hover { background: #b71c1c; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { max-width: 95%; max-height: 95%; position: relative; }
+        .modal-content img { max-width: 100%; max-height: 90vh; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        .modal-close { position: absolute; top: -45px; right: 0; color: white; font-size: 1.8rem; cursor: pointer; background: rgba(255,255,255,0.1); border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+        .modal-close:hover { background: rgba(255,255,255,0.2); }
+        .preview-modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: flex-start; padding: 30px 20px; overflow-y: auto; }
+        .preview-modal-overlay.active { display: flex; }
+        .preview-modal-content { background: #ffffff; border-radius: 16px; max-width: 520px; width: 100%; margin: 20px auto; box-shadow: 0 25px 80px rgba(0,0,0,0.25); overflow: hidden; border: 1px solid #e8ecf1; }
+        .preview-modal-header { background: linear-gradient(135deg, #c62828 0%, #d32f2f 100%); color: white; padding: 25px 30px; text-align: center; }
+        .preview-modal-header h2 { font-size: 1rem; margin-bottom: 6px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+        .preview-modal-header p { font-size: 0.8rem; opacity: 0.9; font-weight: 500; }
+        .preview-modal-body { padding: 25px 30px; max-height: 55vh; overflow-y: auto; }
+        .preview-ticket-card { background: #f8f9fc; border-radius: 10px; padding: 18px; margin-bottom: 15px; border-left: 4px solid #1a237e; }
+        .preview-ticket-card h4 { color: #1a237e; font-size: 0.85rem; margin-bottom: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .preview-field { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #eef2f7; font-size: 0.82rem; }
+        .preview-field:last-child { border-bottom: none; }
+        .preview-field .label { color: #6b7c93; font-weight: 500; }
+        .preview-field .value { color: #2c3e50; font-weight: 600; }
+        .preview-total { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); color: white; padding: 18px; border-radius: 10px; text-align: center; margin-top: 10px; }
+        .preview-total p { font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
+        .preview-total h3 { font-size: 1.6rem; margin-top: 5px; font-weight: 700; }
+        .preview-images { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .preview-images img { width: 75px; height: 75px; object-fit: cover; border-radius: 8px; border: 2px solid #e8ecf1; cursor: pointer; transition: all 0.3s; }
+        .preview-images img:hover { border-color: #1a237e; transform: scale(1.05); }
+        .preview-modal-footer { padding: 20px 30px 25px; display: flex; gap: 12px; background: #fafbfc; border-top: 1px solid #e8ecf1; }
+        .preview-modal-footer .btn { flex: 1; padding: 14px; font-size: 0.85rem; font-weight: 600; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; justify-content: center; letter-spacing: 0.5px; text-transform: uppercase; }
+        .btn-primary { background: #1a237e; color: white; }
+        .btn-primary:hover { background: #283593; box-shadow: 0 4px 16px rgba(26,35,126,0.3); transform: translateY(-1px); }
+        .btn-success { background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%); color: white; width: 100%; padding: 16px; font-size: 0.9rem; border-radius: 10px; box-shadow: 0 4px 16px rgba(46,125,50,0.25); }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(46,125,50,0.35); }
+        .btn-warning { background: #f57c00; color: white; }
+        .btn-warning:hover { background: #ef6c00; }
+        .btn-danger { background: #c62828; color: white; }
+        .btn-danger:hover { background: #b71c1c; }
+        .btn-secondary { background: #546e7a; color: white; }
+        .btn-secondary:hover { background: #455a64; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .login-box { max-width: 420px; margin: 60px auto; background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 50px rgba(0,0,0,0.08); text-align: center; border: 1px solid #e8ecf1; }
+        .login-box .lock-icon { width: 70px; height: 70px; background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 20px; }
+        .login-box h2 { color: #1a237e; margin-bottom: 8px; font-size: 1.2rem; font-weight: 700; }
+        .login-box p { color: #6b7c93; font-size: 0.85rem; margin-bottom: 25px; }
+        .login-box input { width: 100%; padding: 14px; border: 2px solid #e8ecf1; border-radius: 10px; font-size: 1rem; margin-bottom: 18px; text-align: center; color: #2c3e50; transition: all 0.3s; }
+        .login-box input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 4px rgba(26,35,126,0.08); }
+        .admin-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 25px; background: #f8f9fc; padding: 20px; border-radius: 12px; border: 1px solid #e8ecf1; }
+        .admin-filters input, .admin-filters select { padding: 12px; border: 1px solid #d1d8e0; border-radius: 8px; font-size: 0.85rem; color: #2c3e50; background: white; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 25px; margin-top: 25px; }
+        .chart-card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); border: 1px solid #e8ecf1; }
+        .chart-card h3 { font-size: 0.9rem; color: #1a237e; margin-bottom: 20px; text-align: center; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chart-container { position: relative; height: 300px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: white; color: #2c3e50; padding: 20px; border-radius: 12px; border: 1px solid #e8ecf1; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.3s; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.08); }
+        .stat-card .stat-icon { width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin: 0 auto 10px; }
+        .stat-card h4 { font-size: 0.7rem; color: #6b7c93; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        .stat-card p { font-size: 1.5rem; font-weight: 700; color: #1a237e; }
+        .period-selector { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .period-btn { padding: 10px 20px; border: 2px solid #e8ecf1; background: white; color: #6b7c93; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .period-btn.active { background: #1a237e; color: white; border-color: #1a237e; }
+        .period-btn:hover:not(.active) { border-color: #1a237e; color: #1a237e; }
+        .empty-state { text-align: center; padding: 50px 20px; color: #8e9aaf; }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 15px; opacity: 0.5; }
+        .empty-state h4 { font-size: 1rem; color: #6b7c93; margin-bottom: 5px; }
+        .empty-state p { font-size: 0.85rem; }
+        .toast { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%) translateY(100px); background: #2c3e50; color: white; padding: 14px 28px; border-radius: 10px; font-size: 0.85rem; z-index: 3000; transition: transform 0.3s; box-shadow: 0 8px 30px rgba(0,0,0,0.2); font-weight: 500; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { background: #2e7d32; }
+        .toast.error { background: #c62828; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 5000; justify-content: center; align-items: center; flex-direction: column; }
+        .loading-overlay.active { display: flex; }
+        .loading-spinner { width: 50px; height: 50px; border: 4px solid #e8ecf1; border-top-color: #1a237e; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: #1a237e; font-weight: 600; font-size: 0.9rem; }
+        @media (max-width: 768px) { 
+            .app-header { padding: 15px 20px; } 
+            .app-title { font-size: 1rem; } 
+            .navbar { padding: 0 20px; top: 72px; } 
+            .nav-tab { padding: 12px 18px; font-size: 0.75rem; } 
+            .section { padding: 20px; } 
+            .charts-grid { grid-template-columns: 1fr; } 
+            .chart-container { height: 250px; } 
+            table { min-width: 700px; } 
+            .preview-modal-content { margin: 10px; } 
+            .login-box { margin: 30px 15px; padding: 30px 20px; }
+            .desktop-only { display: none !important; }
+            .mobile-cards { display: block; }
+        }
+        @media (min-width: 769px) {
+            .mobile-cards { display: none !important; }
+        }
+        .mobile-card {
+            background: #ffffff;
+            border: 1px solid #e8ecf1;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: all 0.3s;
+        }
+        .mobile-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+        .mobile-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #eef2f7;
+        }
+        .mobile-card-number {
+            background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        .mobile-card-delete {
+            background: #ffebee;
+            color: #c62828;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .mobile-card-delete:hover {
+            background: #c62828;
+            color: white;
+        }
+        .mobile-field {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 12px;
+        }
+        .mobile-field:last-child {
+            margin-bottom: 0;
+        }
+        .mobile-field-label {
+            font-size: 0.7rem;
+            color: #6b7c93;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .mobile-field-input {
+            width: 100%;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: #2c3e50;
+            background: #fafbfc;
+            transition: all 0.2s;
+        }
+        .mobile-field-input:focus {
+            outline: none;
+            border-color: #1a237e;
+            box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.08);
+            background: white;
+        }
+        .mobile-field-select {
+            width: 100%;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: #2c3e50;
+            background: white;
+            cursor: pointer;
+        }
+        .mobile-field-textarea {
+            width: 100%;
+            border: 1px solid #d1d8e0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: #2c3e50;
+            background: #fafbfc;
+            resize: vertical;
+            min-height: 60px;
+        }
+        .mobile-field-textarea:focus {
+            outline: none;
+            border-color: #1a237e;
+            box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.08);
+            background: white;
+        }
+        .mobile-ticket-thumb {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e8ecf1;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .mobile-ticket-thumb:hover {
+            border-color: #1a237e;
+        }
+        .mobile-row-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .photo-upload-box {
+            border: 2px dashed #c5cae9;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            background: #fafbfc;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .photo-upload-box:hover {
+            border-color: #1a237e;
+            background: #f5f7ff;
+        }
+        .photo-upload-box.has-photo {
+            border-color: #2e7d32;
+            background: #e8f5e9;
+        }
+        .photo-upload-box.has-photo .photo-icon {
+            color: #2e7d32;
+        }
+        .photo-upload-box.missing {
+            border-color: #c62828;
+            background: #ffebee;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0.3); }
+            50% { box-shadow: 0 0 0 8px rgba(198, 40, 40, 0); }
+        }
+        .photo-icon {
+            font-size: 1.5rem;
+        }
+        .photo-label {
+            font-size: 0.7rem;
+            color: #6b7c93;
+            font-weight: 600;
+        }
+        .photo-preview-small {
+            width: 55px;
+            height: 55px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid #e8ecf1;
+            margin-top: 4px;
+        }
+        .photo-section-title {
+            font-size: 0.8rem;
+            color: #1a237e;
+            font-weight: 700;
+            margin: 15px 0 10px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eef2f7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .missing-photos-alert {
+            background: #ffebee;
+            border: 2px solid #ef5350;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #c62828;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        .missing-photos-alert ul {
+            text-align: left;
+            margin-top: 8px;
+            padding-left: 20px;
+        }
+        .missing-photos-alert li {
+            margin-bottom: 4px;
+        }
+        .connection-badge { display:flex; align-items:center; gap:6px; padding: 6px 14px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); transition: all 0.3s; }
+        .connection-badge.online { background: rgba(46, 125, 50, 0.25); border-color: rgba(76, 175, 80, 0.4); }
+        .connection-badge.offline { background: rgba(198, 40, 40, 0.25); border-color: rgba(239, 83, 80, 0.4); }
+        .connection-badge.cache { background: rgba(245, 124, 0, 0.25); border-color: rgba(255, 167, 38, 0.4); }
+        .response-btn { background: #1565c0; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 6px; }
+        .response-btn:hover { background: #0d47a1; }
+        .response-status { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .response-status.cancelado { background: #ffebee; color: #c62828; }
+        .response-status.seguimiento { background: #e3f2fd; color: #1565c0; }
+        .respuesta-option { flex: 1; padding: 18px; border: 2px solid #e8ecf1; border-radius: 10px; background: white; cursor: pointer; text-align: center; font-weight: 700; font-size: 0.9rem; color: #6b7c93; transition: all 0.3s; }
+        .respuesta-option:hover { border-color: #9fa8da; }
+        .respuesta-option.selected.cancelado { border-color: #c62828; background: #ffebee; color: #c62828; }
+        .respuesta-option.selected.seguimiento { border-color: #1565c0; background: #e3f2fd; color: #1565c0; }
+        .edit-field-input { width: 100%; border: 1px solid #d1d8e0; border-radius: 6px; padding: 8px 10px; font-size: 0.85rem; font-family: inherit; color: #2c3e50; }
+        .edit-field-input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.08); }
+        .photo-options { display: flex; gap: 8px; margin-top: 5px; flex-wrap: wrap; justify-content: center; }
+        .photo-options button { background: #1a237e; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 600; transition: all 0.3s; }
+        .photo-options button:hover { background: #283593; transform: scale(1.05); }
+        .photo-options button.camera-btn { background: #2e7d32; }
+        .photo-options button.camera-btn:hover { background: #388e3c; }
+        .photo-options button.gallery-btn { background: #1565c0; }
+        .photo-options button.gallery-btn:hover { background: #1976d2; }
+        .photo-options button.remove-btn { background: #c62828; }
+        .photo-options button.remove-btn:hover { background: #b71c1c; }
+        /* ===== Visor público de ticket (link de WhatsApp) ===== */
+        #ticketViewer { position: fixed; inset: 0; z-index: 5000; background: #f5f7fa; overflow-y: auto; display: none; }
+        #ticketViewer.active { display: block; }
+        .tv-header { background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%); color: #fff; padding: 22px 20px; text-align: center; }
+        .tv-header .tv-logo { font-size: 2rem; }
+        .tv-header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; margin-top: 4px; }
+        .tv-header p { font-size: 0.72rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 2px; }
+        .tv-body { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+        .tv-card { background: #fff; border: 1px solid #e8ecf1; border-radius: 14px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 18px; }
+        .tv-field { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f2f5; font-size: 0.95rem; }
+        .tv-field:last-child { border-bottom: none; }
+        .tv-field .k { color: #6b7c93; font-weight: 600; }
+        .tv-field .v { color: #1a237e; font-weight: 700; text-align: right; }
+        .tv-status { display:inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+        .tv-status.cancelado { background:#ffebee; color:#c62828; }
+        .tv-status.seguimiento { background:#e3f2fd; color:#1565c0; }
+        .tv-photos-title { font-size: 0.85rem; font-weight: 700; color: #1a237e; margin: 6px 0 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .tv-photo { margin-bottom: 16px; }
+        .tv-photo .cap { font-size: 0.8rem; color: #6b7c93; font-weight: 600; margin-bottom: 6px; }
+        .tv-photo img { width: 100%; border-radius: 10px; border: 1px solid #e8ecf1; display: block; }
+        .tv-loading, .tv-error { text-align: center; padding: 60px 20px; color: #6b7c93; }
+        .tv-error h3 { color: #c62828; margin-bottom: 8px; }
+        .tv-back { display:inline-block; margin-top: 18px; background:#1a237e; color:#fff; text-decoration:none; padding: 12px 22px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+        .tv-spinner { width: 44px; height: 44px; border: 4px solid #e8ecf1; border-top-color: #1a237e; border-radius: 50%; animation: tvspin 0.9s linear infinite; margin: 0 auto 16px; }
+        @keyframes tvspin { to { transform: rotate(360deg); } }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <!-- Visor público de ticket: se muestra cuando la URL trae ?ticket=ID -->
+    <div id="ticketViewer">
+        <div class="tv-header">
+            <div class="tv-logo">📋</div>
+            <h1>CANCELACIONES</h1>
+            <p>Detalle del Ticket</p>
+        </div>
+        <div class="tv-body" id="ticketViewerBody">
+            <div class="tv-loading">
+                <div class="tv-spinner"></div>
+                Cargando ticket...
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header class="app-header">
+            <div class="app-brand">
+                <div class="app-logo">📋</div>
+                <div>
+                    <div class="app-title">CANCELACIONES</div>
+                    <div class="app-subtitle">Sistema de Gestión de Tickets</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span class="connection-badge offline" id="connectionBadge">⚪ Verificando...</span>
+                <div class="app-version">V2.1</div>
+            </div>
+        </header>
+
+        <nav class="navbar">
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showTab('capture')">📷 Capturar</button>
+                <button class="nav-tab" onclick="showTab('admin')">🔒 Administración</button>
+            </div>
+        </nav>
+
+        <div id="capture" class="section active">
+            <div class="section-header">
+                <div class="section-title">📄 Captura de Tickets</div>
+                <div class="section-desc">Completa los datos del ticket y adjunta las fotos correspondientes</div>
+            </div>
+
+            <div id="dataSection">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📊</div>
+                        <h3>Datos del Ticket</h3>
+                    </div>
+                    <!-- Desktop Table View -->
+                    <div class="table-container desktop-only">
+                        <table id="dataTable">
+                            <thead>
+                                <tr><th>#</th><th>Fecha</th><th>Tienda *</th><th>Folio</th><th>Monto</th><th>Motivo *</th><th>Notas</th><th>Tickets</th><th>Producto</th></tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                    <!-- Mobile Card View -->
+                    <div class="mobile-cards" id="mobileCards"></div>
+                </div>
+                <button class="btn btn-success" onclick="showPreviewModal()">📤 Enviar por WhatsApp</button>
+            </div>
+        </div>
+
+        <div id="admin" class="section">
+            <div id="adminLogin" class="login-box">
+                <div class="lock-icon">🔐</div>
+                <h2>Acceso Administrativo</h2>
+                <p>Ingresa tu contraseña para acceder al panel de reportes</p>
+                <input type="password" id="adminPassword" placeholder="Contraseña" onkeypress="if(event.key==='Enter')loginAdmin()">
+                <button class="btn btn-primary" onclick="loginAdmin()" style="width:100%;">Ingresar al Sistema</button>
+            </div>
+
+            <div id="adminDashboard" style="display:none;">
+                <div class="section-header">
+                    <div class="section-title">📊 Panel de Control</div>
+                    <div class="section-desc">Visualiza y administra todos los registros enviados</div>
+                </div>
+
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">🔍</div>
+                        <h3>Filtros de Búsqueda</h3>
+                    </div>
+                    <div class="admin-filters">
+                        <input type="date" id="filterDate" onchange="updateAdmin()">
+                        <select id="filterTienda" onchange="updateAdmin()"><option value="">Todas las tiendas</option></select>
+                        <input type="text" id="filterFolio" placeholder="Buscar folio..." oninput="updateAdmin()">
+                        <button class="btn btn-warning" onclick="exportAdminExcel()">📊 Exportar Reporte</button>
+                        <button class="btn btn-danger" onclick="showCleanDatabaseModal()">🗑️ Limpiar Base de Datos</button>
+                    </div>
+                </div>
+
+                <div class="period-selector">
+                    <button class="period-btn active" onclick="setPeriod('day')">Hoy</button>
+                    <button class="period-btn" onclick="setPeriod('week')">Semana</button>
+                    <button class="period-btn" onclick="setPeriod('month')">Mes</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📋</div>
+                        <h3>Registros Enviados</h3>
+                    </div>
+                    <div class="table-container">
+                        <table id="adminTable">
+                            <thead>
+                                <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
+                            </thead>
+                            <tbody id="adminTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card"><h3>Cancelaciones por Tienda</h3><div class="chart-container"><canvas id="chartCancelaciones"></canvas></div></div>
+                    <div class="chart-card"><h3>Monto Cancelado por Tienda</h3><div class="chart-container"><canvas id="chartMontos"></canvas></div></div>
+                    <div class="chart-card"><h3>Motivos de Cancelación</h3><div class="chart-container"><canvas id="chartMotivos"></canvas></div></div>
+                    <div class="chart-card"><h3>Montos de Pedido</h3><div class="chart-container"><canvas id="chartPedidos"></canvas></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-modal-overlay" id="previewModal" onclick="closePreviewModal(event)">
+        <div class="preview-modal-content" onclick="event.stopPropagation()">
+            <div class="preview-modal-header">
+                <h2>⚠️ REVISA LOS DATOS ANTES DE ENVIARLOS</h2>
+                <p>📝 AÚN PUEDES CAMBIARLOS — Verifica que toda la información sea correcta</p>
+            </div>
+            <div class="preview-modal-body" id="previewModalBody"></div>
+            <div class="preview-modal-footer">
+                <button class="btn btn-secondary" onclick="closePreviewModal()">✏️ Corregir Datos</button>
+                <button class="btn btn-success" onclick="confirmSendWhatsApp()">📤 Confirmar y Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="imageModal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <img id="modalImage" src="" alt="Ticket completo">
+        </div>
+    </div>
+
+    <!-- Clean Database Modal -->
+    <div class="preview-modal-overlay" id="cleanDbModal" onclick="closeCleanDbModal(event)">
+        <div class="preview-modal-content" onclick="event.stopPropagation()">
+            <div class="preview-modal-header" style="background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);">
+                <h2>⚠️ LIMPIAR BASE DE DATOS</h2>
+                <p>🚨 Esta acción NO se puede deshacer — Los datos se perderán permanentemente</p>
+            </div>
+            <div class="preview-modal-body">
+                <div style="background: #fff3e0; border-left: 4px solid #f57c00; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: #e65100; font-size: 0.9rem; margin-bottom: 10px; font-weight: 700;">📋 PASOS OBLIGATORIOS ANTES DE CONTINUAR:</h4>
+                    <ol style="color: #bf360c; font-size: 0.85rem; padding-left: 20px; line-height: 1.8;">
+                        <li><strong>Descarga el respaldo</strong> con el botón "📊 Exportar Reporte"</li>
+                        <li>Verifica que el archivo Excel contenga <strong>todos los registros</strong></li>
+                        <li>Solo entonces, marca la casilla de confirmación</li>
+                    </ol>
+                </div>
+
+                <div style="background: #ffebee; border: 2px solid #ef5350; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <span style="font-size: 1.5rem;">⚠️</span>
+                        <div>
+                            <h4 style="color: #c62828; font-size: 0.9rem; font-weight: 700; margin-bottom: 5px;">ADVERTENCIA CRÍTICA</h4>
+                            <p style="color: #b71c1c; font-size: 0.82rem; line-height: 1.6;">
+                                Vas a eliminar <strong id="cleanDbCount">0</strong> registros de la base de datos. 
+                                Esta acción es <strong>IRREVERSIBLE</strong>. Los datos no se podrán recuperar.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin: 20px 0;">
+                    <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px; border: 2px solid #e8ecf1; border-radius: 8px; transition: all 0.3s;" id="cleanDbCheckboxLabel">
+                        <input type="checkbox" id="cleanDbConfirm" style="width: 22px; height: 22px; cursor: pointer; accent-color: #c62828;" onchange="toggleCleanDbButton()">
+                        <span style="font-size: 0.85rem; color: #2c3e50; font-weight: 500;">
+                            Confirmo que he descargado el respaldo en Excel y entiendo que esta acción eliminará todos los registros permanentemente.
+                        </span>
+                    </label>
+                </div>
+
+                <div id="cleanDbPasswordSection" style="display: none; margin-top: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: #6b7c93; margin-bottom: 8px; font-weight: 600;">Ingresa la contraseña de administrador para confirmar:</label>
+                    <input type="password" id="cleanDbPassword" placeholder="Contraseña admin" style="width: 100%; padding: 14px; border: 2px solid #e8ecf1; border-radius: 8px; font-size: 1rem; text-align: center; color: #2c3e50;" onkeypress="if(event.key==='Enter')confirmCleanDatabase()">
+                </div>
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn btn-secondary" onclick="closeCleanDbModal()">❌ Cancelar</button>
+                <button class="btn btn-danger" id="cleanDbBtn" onclick="confirmCleanDatabase()" disabled>🗑️ Eliminar Todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Confirmation Modal -->
+    <div class="preview-modal-overlay" id="editConfirmModal" onclick="closeEditConfirmModal(event)">
+        <div class="preview-modal-content" onclick="event.stopPropagation()" style="max-width: 460px;">
+            <div class="preview-modal-header">
+                <h2>✏️ CONFIRMAR EDICIÓN</h2>
+                <p>Este cambio quedará registrado en el historial del ticket</p>
+            </div>
+            <div class="preview-modal-body">
+                <div style="background:#f8f9fc;border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;">
+                    <div><strong>Campo:</strong> <span id="editFieldLabel"></span></div>
+                    <div><strong>Valor anterior:</strong> <span id="editOldValue"></span></div>
+                    <div><strong>Valor nuevo:</strong> <span id="editNewValue"></span></div>
+                </div>
+                <label style="display:block;font-size:0.8rem;color:#6b7c93;margin-bottom:8px;font-weight:600;">Motivo de la modificación *</label>
+                <textarea id="editMotivo" class="edit-field-input" rows="2" placeholder="¿Por qué se modifica este dato?" style="margin-bottom:15px;"></textarea>
+                <label style="display:block;font-size:0.8rem;color:#6b7c93;margin-bottom:8px;font-weight:600;">¿Quién está modificando? *</label>
+                <input type="text" id="editPor" class="edit-field-input" placeholder="Nombre de quien modifica">
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditConfirmModal()">❌ Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmFieldEdit()">✅ Guardar Cambio</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Respuesta Modal -->
+    <div class="preview-modal-overlay" id="respuestaModal" onclick="closeRespuestaModal(event)">
+        <div class="preview-modal-content" onclick="event.stopPropagation()" style="max-width: 480px;">
+            <div class="preview-modal-header" style="background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);">
+                <h2>📨 REGISTRAR RESPUESTA</h2>
+                <p>Selecciona el tipo de respuesta para este ticket</p>
+            </div>
+            <div class="preview-modal-body">
+                <div style="display:flex;gap:12px;margin-bottom:18px;">
+                    <div class="respuesta-option" id="optCancelado" onclick="selectRespuestaTipo('cancelado')">❌<br>Cancelado</div>
+                    <div class="respuesta-option" id="optSeguimiento" onclick="selectRespuestaTipo('seguimiento')">🔄<br>Seguimiento</div>
+                </div>
+                <div id="evidenciaSection" style="display:none;">
+                    <div class="photo-section-title">📸 Foto de Evidencia (obligatoria)</div>
+                    <div class="photo-upload-box" id="evidenciaBox" onclick="uploadEvidenciaFoto()" style="min-height:90px;">
+                        <span class="photo-icon">📷</span>
+                        <span class="photo-label">Subir o tomar foto de evidencia</span>
+                    </div>
+                </div>
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn btn-secondary" onclick="closeRespuestaModal()">❌ Cancelar</button>
+                <button class="btn btn-success" id="enviarRespuestaBtn" onclick="enviarRespuestaWhatsApp()" disabled style="flex:1;">📤 Enviar por WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Guardando registros...</div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const TIENDAS = ['valle','popular','san agustin','progreso1','progreso2','tulpetlac','cuautepec','cuautitlan','tecamac1','tecamac2','zumpango','tizayuca','nicolas'];
+        const MOTIVOS = ['error de codigo','error de vendedor','error de cliente','producto en mal estado','no traia dinero','no paso a pagar','pendiente por existencia','pedido'];
+        const ADMIN_PASS = 'admin2144';
+
+        let currentRows = [];
+        let currentPeriod = 'day';
+        let charts = {};
+        let isAdminLogged = false;
+        let firebaseReady = false;
+        let db = null;
+        let fbRefs = null;
+        let allRecords = [];
+
+        function waitForFirebase() {
+            return new Promise((resolve) => {
+                const check = setInterval(() => {
+                    if (window.firebaseDB && window.firebaseRefs) {
+                        db = window.firebaseDB;
+                        fbRefs = window.firebaseRefs;
+                        firebaseReady = true;
+                        clearInterval(check);
+                        resolve();
+                    }
+                }, 100);
+                setTimeout(() => { clearInterval(check); resolve(); }, 10000);
+            });
+        }
+
+        function setConnectionStatus(state) {
+            const badge = document.getElementById('connectionBadge');
+            if (!badge) return;
+            badge.classList.remove('online', 'offline', 'cache');
+            if (state === 'online') {
+                badge.classList.add('online');
+                badge.textContent = '🟢 Firebase conectado';
+            } else if (state === 'cache') {
+                badge.classList.add('cache');
+                badge.textContent = '🟡 Sin conexión (datos locales)';
+            } else if (state === 'checking') {
+                badge.classList.add('offline');
+                badge.textContent = '⚪ Verificando...';
+            } else {
+                badge.classList.add('offline');
+                badge.textContent = '🔴 Modo local (sin Firebase)';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Si la URL trae ?ticket=ID, mostrar el visor público en lugar de la app normal
+            const params = new URLSearchParams(window.location.search);
+            const ticketId = params.get('ticket');
+            if (ticketId) {
+                document.getElementById('ticketViewer').classList.add('active');
+                document.querySelector('.app-container').style.display = 'none';
+                await waitForFirebase();
+                openTicketViewer(ticketId);
+                return;
+            }
+
+            populateSelects();
+            addRow();
+            setConnectionStatus('checking');
+            await waitForFirebase();
+            if (firebaseReady) {
+                loadRecordsRealtime();
+                showToast('✅ Conectado a Firebase', 'success');
+                setConnectionStatus('online');
+            } else {
+                showToast('⚠️ Usando modo local (Firebase no disponible)', 'error');
+                loadLocalRecords();
+                setConnectionStatus('offline');
+            }
+        });
+
+        // ===== Visor público de ticket (abierto desde el link de WhatsApp) =====
+        function tvEsc(s) {
+            return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        async function openTicketViewer(ticketId) {
+            const body = document.getElementById('ticketViewerBody');
+            if (!firebaseReady) {
+                body.innerHTML = `<div class="tv-error"><h3>Sin conexión</h3><p>No se pudo conectar con la base de datos. Revisa tu internet e intenta de nuevo.</p><a class="tv-back" href="./">Ir al inicio</a></div>`;
+                return;
+            }
+            try {
+                const snap = await fbRefs.getDoc(fbRefs.doc(db, 'registros', ticketId));
+                if (!snap.exists()) {
+                    body.innerHTML = `<div class="tv-error"><h3>Ticket no encontrado</h3><p>El ticket que buscas no existe o fue eliminado.</p><a class="tv-back" href="./">Ir al inicio</a></div>`;
+                    return;
+                }
+                renderTicketViewer(snap.data());
+            } catch (err) {
+                console.error(err);
+                body.innerHTML = `<div class="tv-error"><h3>Error al cargar</h3><p>${tvEsc(err.message)}</p><a class="tv-back" href="./">Ir al inicio</a></div>`;
+            }
+        }
+
+        function renderTicketViewer(r) {
+            const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+            let respHtml = '';
+            if (r.respuesta === 'cancelado') respHtml = `<div class="tv-field"><span class="k">📨 Respuesta</span><span class="v"><span class="tv-status cancelado">❌ Cancelado</span></span></div>`;
+            else if (r.respuesta === 'seguimiento') respHtml = `<div class="tv-field"><span class="k">📨 Respuesta</span><span class="v"><span class="tv-status seguimiento">🔄 Seguimiento</span></span></div>`;
+
+            let photosHtml = '';
+            if (r.fotoEvidencia) photosHtml += `<div class="tv-photo"><div class="cap">✅ Foto de evidencia (cancelación)</div><img src="${r.fotoEvidencia}"></div>`;
+
+            const body = document.getElementById('ticketViewerBody');
+            body.innerHTML = `
+                <div class="tv-card">
+                    <div class="tv-field"><span class="k">📅 Fecha</span><span class="v">${tvEsc(r.fecha)}</span></div>
+                    <div class="tv-field"><span class="k">🏪 Tienda</span><span class="v">${tvEsc(cap(r.tienda))}</span></div>
+                    <div class="tv-field"><span class="k">📋 Folio</span><span class="v">${tvEsc(r.folio) || 'N/A'}</span></div>
+                    <div class="tv-field"><span class="k">💰 Monto</span><span class="v">$${tvEsc(formatDisplayMonto(r.monto)) || '0.00'}</span></div>
+                    <div class="tv-field"><span class="k">📝 Motivo</span><span class="v">${tvEsc(cap(r.motivo))}</span></div>
+                    ${r.notas ? `<div class="tv-field"><span class="k">📌 Notas</span><span class="v">${tvEsc(r.notas)}</span></div>` : ''}
+                    ${respHtml}
+                </div>
+                ${photosHtml ? `<div class="tv-card"><div class="tv-photos-title">📸 Evidencia</div>${photosHtml}</div>` : `<div class="tv-card"><p style="text-align:center;color:#9aa3b2;font-size:0.9rem;">Este ticket no tiene foto de evidencia.</p></div>`}
+                <div style="text-align:center;"><a class="tv-back" href="./">Abrir el sistema completo</a></div>
+            `;
+        }
+
+        function loadLocalRecords() {
+            const stored = localStorage.getItem('sentRecords');
+            if (!stored) localStorage.setItem('sentRecords', JSON.stringify([]));
+            allRecords = JSON.parse(localStorage.getItem('sentRecords') || '[]');
+        }
+
+        function loadRecordsRealtime() {
+            if (!firebaseReady) return;
+            const q = fbRefs.query(fbRefs.collection(db, 'registros'), fbRefs.orderBy('sentAt', 'desc'));
+            fbRefs.onSnapshot(q, (snapshot) => {
+                allRecords = [];
+                snapshot.forEach(doc => {
+                    allRecords.push({ ...doc.data(), id: doc.id });
+                });
+                if (isAdminLogged) updateAdmin();
+                setConnectionStatus(snapshot.metadata.fromCache ? 'cache' : 'online');
+            }, (err) => {
+                console.error('Firebase error:', err);
+                loadLocalRecords();
+                setConnectionStatus('offline');
+            });
+        }
+
+        function populateSelects() {
+            const tiendaFilter = document.getElementById('filterTienda');
+            TIENDAS.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t; opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+                tiendaFilter.appendChild(opt);
+            });
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tab).classList.add('active');
+            if (tab === 'admin' && isAdminLogged) updateAdmin();
+        }
+
+        function compressImage(dataUrl, maxWidth = 1200, quality = 0.7) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = Math.round(height * (maxWidth / width));
+                        width = maxWidth;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    let compressed = canvas.toDataURL('image/jpeg', quality);
+
+                    if (compressed.length > 800000) {
+                        compressed = canvas.toDataURL('image/jpeg', 0.5);
+                    }
+                    if (compressed.length > 800000) {
+                        canvas.width = Math.round(width * 0.7);
+                        canvas.height = Math.round(height * 0.7);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        compressed = canvas.toDataURL('image/jpeg', 0.5);
+                    }
+
+                    resolve(compressed);
+                };
+                img.src = dataUrl;
+            });
+        }
+
+        function addRow() {
+            const now = new Date();
+            const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+            currentRows.push({ 
+                id: Date.now(), 
+                fecha: today, 
+                tienda: '', 
+                folio: '', 
+                monto: '', 
+                motivo: '', 
+                notas: '', 
+                fotoTickets: '',
+                fotoProducto: ''
+            });
+            renderTable();
+        }
+
+        function formatDisplayMonto(val) {
+            if (val === undefined || val === null || val === '') return '';
+            const parts = String(val).split('.');
+            const intFormatted = parts[0] ? Number(parts[0]).toLocaleString('en-US') : '0';
+            return parts.length > 1 ? `${intFormatted}.${parts[1]}` : intFormatted;
+        }
+
+        function formatMontoInput(idx, inputEl) {
+            let raw = inputEl.value.replace(/[^0-9.]/g, '');
+            const firstDot = raw.indexOf('.');
+            if (firstDot !== -1) {
+                raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, '');
+            }
+            let parts = raw.split('.');
+            let intPart = (parts[0] || '').replace(/^0+(?=\d)/, '');
+            let decPart = parts.length > 1 ? parts[1].slice(0, 2) : undefined;
+            const formattedInt = intPart ? Number(intPart).toLocaleString('en-US') : '';
+            const formatted = decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
+            inputEl.value = formatted;
+            const numericValue = intPart ? (intPart + (decPart !== undefined ? '.' + decPart : '')) : '';
+            updateRow(idx, 'monto', numericValue);
+        }
+
+        function renderTable() {
+            // Desktop table
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            currentRows.forEach((row, idx) => {
+                let tiendaOpts = '<option value="">Seleccionar...</option>';
+                TIENDAS.forEach(t => { tiendaOpts += `<option value="${t}" ${row.tienda===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`; });
+                let motivoOpts = '<option value="">Seleccionar...</option>';
+                MOTIVOS.forEach(m => { motivoOpts += `<option value="${m}" ${row.motivo===m?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`; });
+
+                const ticketsHasPhoto = row.fotoTickets ? 'has-photo' : '';
+                const productHasPhoto = row.fotoProducto ? 'has-photo' : '';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${idx+1}</td>
+                    <td><input type="date" value="${row.fecha}" onchange="updateRow(${idx},'fecha',this.value)"></td>
+                    <td><select required onchange="updateRow(${idx},'tienda',this.value)">${tiendaOpts}</select></td>
+                    <td><input type="text" value="${row.folio}" onchange="updateRow(${idx},'folio',this.value)" placeholder="Folio"></td>
+                    <td><input type="text" inputmode="decimal" value="${formatDisplayMonto(row.monto)}" oninput="formatMontoInput(${idx}, this)" placeholder="0.00"></td>
+                    <td><select required onchange="updateRow(${idx},'motivo',this.value)">${motivoOpts}</select></td>
+                    <td><textarea onchange="updateRow(${idx},'notas',this.value)" placeholder="Notas adicionales...">${row.notas}</textarea></td>
+                    <td>
+                        <div class="photo-upload-box ${ticketsHasPhoto}" style="padding:10px;min-height:80px;">
+                            ${row.fotoTickets ? `<img src="${row.fotoTickets}" class="photo-preview-small">` : '<span class="photo-icon">📷</span><span class="photo-label">Tickets</span>'}
+                            <div class="photo-options">
+                                <button class="camera-btn" onclick="event.stopPropagation(); takePhoto(${idx}, 'tickets')">📷 Cámara</button>
+                                <button class="gallery-btn" onclick="event.stopPropagation(); uploadPhoto(${idx}, 'tickets')">🖼️ Galería</button>
+                                ${row.fotoTickets ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'tickets')">✕</button>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="photo-upload-box ${productHasPhoto}" style="padding:10px;min-height:80px;">
+                            ${row.fotoProducto ? `<img src="${row.fotoProducto}" class="photo-preview-small">` : '<span class="photo-icon">📷</span><span class="photo-label">Producto</span>'}
+                            <div class="photo-options">
+                                <button class="camera-btn" onclick="event.stopPropagation(); takePhoto(${idx}, 'producto')">📷 Cámara</button>
+                                <button class="gallery-btn" onclick="event.stopPropagation(); uploadPhoto(${idx}, 'producto')">🖼️ Galería</button>
+                                ${row.fotoProducto ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'producto')">✕</button>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+                tbody.appendChild(tr);
+            });
+
+            // Mobile cards
+            const mobileContainer = document.getElementById('mobileCards');
+            mobileContainer.innerHTML = '';
+            currentRows.forEach((row, idx) => {
+                let tiendaOpts = '<option value="">Seleccionar...</option>';
+                TIENDAS.forEach(t => { tiendaOpts += `<option value="${t}" ${row.tienda===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`; });
+                let motivoOpts = '<option value="">Seleccionar...</option>';
+                MOTIVOS.forEach(m => { motivoOpts += `<option value="${m}" ${row.motivo===m?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`; });
+
+                const ticketsHasPhoto = row.fotoTickets ? 'has-photo' : '';
+                const productHasPhoto = row.fotoProducto ? 'has-photo' : '';
+
+                const card = document.createElement('div');
+                card.className = 'mobile-card';
+                card.id = `mobile-card-${idx}`;
+                card.innerHTML = `
+                    <div class="mobile-card-header">
+                        <div class="mobile-card-number">${idx+1}</div>
+                    </div>
+                    <div class="mobile-row-grid">
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">📅 Fecha</span>
+                            <input type="date" class="mobile-field-input" value="${row.fecha}" onchange="updateRow(${idx},'fecha',this.value)">
+                        </div>
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">🏪 Tienda *</span>
+                            <select class="mobile-field-select" required onchange="updateRow(${idx},'tienda',this.value)">${tiendaOpts}</select>
+                        </div>
+                    </div>
+                    <div class="mobile-row-grid">
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">📋 Folio</span>
+                            <input type="text" class="mobile-field-input" value="${row.folio}" onchange="updateRow(${idx},'folio',this.value)" placeholder="Folio">
+                        </div>
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">💰 Monto</span>
+                            <input type="text" inputmode="decimal" class="mobile-field-input" value="${formatDisplayMonto(row.monto)}" oninput="formatMontoInput(${idx}, this)" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="mobile-field">
+                        <span class="mobile-field-label">📝 Motivo *</span>
+                        <select class="mobile-field-select" required onchange="updateRow(${idx},'motivo',this.value)">${motivoOpts}</select>
+                    </div>
+                    <div class="mobile-field">
+                        <span class="mobile-field-label">📌 Notas</span>
+                        <textarea class="mobile-field-textarea" onchange="updateRow(${idx},'notas',this.value)" placeholder="Notas adicionales...">${row.notas}</textarea>
+                    </div>
+
+                    <div class="photo-section-title">📸 Fotos</div>
+                    <div class="photo-grid">
+                        <div class="photo-upload-box ${ticketsHasPhoto}" style="padding:10px;min-height:100px;">
+                            ${row.fotoTickets ? `<img src="${row.fotoTickets}" class="photo-preview-small">` : '<span class="photo-icon">📷</span><span class="photo-label">Tickets</span>'}
+                            <div class="photo-options">
+                                <button class="camera-btn" onclick="event.stopPropagation(); takePhoto(${idx}, 'tickets')">📷</button>
+                                <button class="gallery-btn" onclick="event.stopPropagation(); uploadPhoto(${idx}, 'tickets')">🖼️</button>
+                                ${row.fotoTickets ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'tickets')">✕</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="photo-upload-box ${productHasPhoto}" style="padding:10px;min-height:100px;">
+                            ${row.fotoProducto ? `<img src="${row.fotoProducto}" class="photo-preview-small">` : '<span class="photo-icon">📷</span><span class="photo-label">Producto</span>'}
+                            <div class="photo-options">
+                                <button class="camera-btn" onclick="event.stopPropagation(); takePhoto(${idx}, 'producto')">📷</button>
+                                <button class="gallery-btn" onclick="event.stopPropagation(); uploadPhoto(${idx}, 'producto')">🖼️</button>
+                                ${row.fotoProducto ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'producto')">✕</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                mobileContainer.appendChild(card);
+            });
+        }
+
+        function updateRow(idx, field, value) { currentRows[idx][field] = value; }
+
+        // Función para tomar foto con cámara
+        function takePhoto(idx, type) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = async (e) => {
+                if (e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = async (ev) => {
+                        const compressed = await compressImage(ev.target.result, 800, 0.6);
+                        currentRows[idx][type === 'tickets' ? 'fotoTickets' : 'fotoProducto'] = compressed;
+                        renderTable();
+                        showToast(`✅ Foto de ${type === 'tickets' ? 'tickets' : 'producto'} tomada con cámara`, 'success');
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            };
+            input.click();
+        }
+
+        // Función para subir imagen desde galería
+        function uploadPhoto(idx, type) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e) => {
+                if (e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = async (ev) => {
+                        const compressed = await compressImage(ev.target.result, 800, 0.6);
+                        currentRows[idx][type === 'tickets' ? 'fotoTickets' : 'fotoProducto'] = compressed;
+                        renderTable();
+                        showToast(`✅ Foto de ${type === 'tickets' ? 'tickets' : 'producto'} subida desde galería`, 'success');
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            };
+            input.click();
+        }
+
+        // Función para eliminar foto
+        function removePhoto(idx, type) {
+            if (confirm('¿Eliminar esta foto?')) {
+                currentRows[idx][type === 'tickets' ? 'fotoTickets' : 'fotoProducto'] = '';
+                renderTable();
+                showToast('Foto eliminada', 'success');
+            }
+        }
+
+        function showPreviewModal() {
+            for(let row of currentRows) { if(!row.tienda) { showToast('La tienda es obligatoria en todas las filas', 'error'); return; } if(!row.motivo) { showToast('El motivo es obligatorio en todas las filas', 'error'); return; } }
+
+            const existingAlert = document.getElementById('photoAlert');
+            if (existingAlert) existingAlert.remove();
+            const modalBody = document.getElementById('previewModalBody');
+            let total = 0, html = '';
+            const images = [];
+            currentRows.forEach((r, i) => {
+                if(r.fotoTickets) images.push({src: r.fotoTickets, label: `Tickets ${i+1}`});
+                if(r.fotoProducto) images.push({src: r.fotoProducto, label: `Producto ${i+1}`});
+            });
+            if(images.length > 0) { html += '<div class="preview-images">'; images.forEach(img => { html += `<img src="${img.src}" onclick="openModal('${img.src}')" title="${img.label} - Clic para ver completa">`; }); html += '</div>'; }
+            currentRows.forEach((row, i) => {
+                html += `<div class="preview-ticket-card"><h4>📄 Ticket ${i+1}</h4><div class="preview-field"><span class="label">📅 Fecha:</span><span class="value">${row.fecha}</span></div><div class="preview-field"><span class="label">🏪 Tienda:</span><span class="value">${row.tienda.charAt(0).toUpperCase()+row.tienda.slice(1)}</span></div><div class="preview-field"><span class="label">📋 Folio:</span><span class="value">${row.folio || 'N/A'}</span></div><div class="preview-field"><span class="label">💰 Monto:</span><span class="value">$${formatDisplayMonto(row.monto) || '0.00'}</span></div><div class="preview-field"><span class="label">📝 Motivo:</span><span class="value">${row.motivo.charAt(0).toUpperCase()+row.motivo.slice(1)}</span></div>${row.fotoTickets ? `<div class="preview-field"><span class="label">📸 Tickets:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${row.fotoProducto ? `<div class="preview-field"><span class="label">📸 Producto:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${row.notas ? `<div class="preview-field"><span class="label">📌 Notas:</span><span class="value">${row.notas}</span></div>` : ''}</div>`;
+                total += parseFloat(row.monto) || 0;
+            });
+            html += `<div class="preview-total"><p>Monto Total a Enviar</p><h3>$${total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</h3></div>`;
+            modalBody.innerHTML = html;
+            document.getElementById('previewModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePreviewModal(e) { if(e && e.target !== document.getElementById('previewModal')) return; document.getElementById('previewModal').classList.remove('active'); document.body.style.overflow = ''; }
+
+        async function confirmSendWhatsApp() {
+            closePreviewModal();
+            document.getElementById('loadingOverlay').classList.add('active');
+
+            try {
+                let msg = '*📄 REPORTE DE TICKETS*\n\n', total = 0;
+                currentRows.forEach((row, i) => {
+                    msg += `*Ticket ${i+1}*\n📅 Fecha: ${row.fecha}\n🏪 Tienda: ${row.tienda}\n📋 Folio: ${row.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(row.monto) || '0.00'}\n📝 Motivo: ${row.motivo}\n`;
+                    if (row.fotoTickets) msg += `📸 Tickets: Adjunto\n`;
+                    if (row.fotoProducto) msg += `📸 Producto: Adjunto\n`;
+                    if (row.notas) msg += `📌 Notas: ${row.notas}\n`;
+                    msg += `-------------------\n`;
+                    total += parseFloat(row.monto) || 0;
+                });
+                msg += `\n*💵 TOTAL: $${total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}*\n\n_Enviado desde CANCELACIONES V2.1_`;
+
+                // Check image sizes before saving
+                for (const row of currentRows) {
+                    if (row.fotoTickets && row.fotoTickets.length > 900000) {
+                        row.fotoTickets = await compressImage(row.fotoTickets, 800, 0.5);
+                    }
+                    if (row.fotoProducto && row.fotoProducto.length > 900000) {
+                        row.fotoProducto = await compressImage(row.fotoProducto, 800, 0.5);
+                    }
+                }
+
+                // Save records to Firestore with Base64 images
+                const recordsToSave = currentRows.map(row => {
+                    const { id, ...rest } = row;
+                    return { ...rest, sentAt: new Date().toISOString() };
+                });
+
+                if (firebaseReady) {
+                    for (const record of recordsToSave) {
+                        await fbRefs.addDoc(fbRefs.collection(db, 'registros'), record);
+                    }
+                } else {
+                    const localRecords = recordsToSave.map(r => ({ id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8), ...r }));
+                    allRecords.push(...localRecords);
+                    localStorage.setItem('sentRecords', JSON.stringify(allRecords));
+                }
+
+                const encoded = encodeURIComponent(msg);
+                window.open(`https://wa.me/?text=${encoded}`, '_blank');
+                showToast('¡Datos guardados y WhatsApp abierto!', 'success');
+
+                currentRows = [];
+                addRow();
+            } catch (err) {
+                console.error(err);
+                showToast('Error al guardar: ' + err.message, 'error');
+            } finally {
+                document.getElementById('loadingOverlay').classList.remove('active');
+            }
+        }
+
+        function openModal(src) { document.getElementById('modalImage').src = src; document.getElementById('imageModal').classList.add('active'); }
+        function closeModal() { document.getElementById('imageModal').classList.remove('active'); }
+
+        function loginAdmin() {
+            const pass = document.getElementById('adminPassword').value;
+            if(pass === ADMIN_PASS) {
+                isAdminLogged = true;
+                document.getElementById('adminLogin').style.display = 'none';
+                document.getElementById('adminDashboard').style.display = 'block';
+                updateAdmin();
+                showToast('¡Bienvenido al Panel de Control!', 'success');
+            } else { showToast('Contraseña incorrecta', 'error'); }
+        }
+
+        function setPeriod(p) {
+            currentPeriod = p;
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            updateAdmin();
+        }
+
+        function updateAdmin() {
+            if(!isAdminLogged) return;
+            const filterDate = document.getElementById('filterDate').value;
+            const filterTienda = document.getElementById('filterTienda').value;
+            const filterFolio = document.getElementById('filterFolio').value.toLowerCase();
+
+            let filtered = allRecords.filter(r => {
+                if(filterDate && r.fecha !== filterDate) return false;
+                if(filterTienda && r.tienda !== filterTienda) return false;
+                if(filterFolio && (!r.folio || !r.folio.toLowerCase().includes(filterFolio))) return false;
+                return true;
+            });
+
+            const now = new Date();
+            filtered = filtered.filter(r => {
+                const rDate = new Date(r.fecha + 'T00:00:00');
+                if(currentPeriod === 'day') { const today = new Date(); today.setHours(0,0,0,0); rDate.setHours(0,0,0,0); return rDate.getTime() === today.getTime(); }
+                else if(currentPeriod === 'week') { const weekAgo = new Date(now.getTime() - 7*24*60*60*1000); weekAgo.setHours(0,0,0,0); return rDate >= weekAgo; }
+                else if(currentPeriod === 'month') { return rDate.getMonth() === now.getMonth() && rDate.getFullYear() === now.getFullYear(); }
+                return true;
+            });
+
+            renderStats(filtered);
+            renderAdminTable(filtered);
+            renderCharts(filtered);
+        }
+
+        function renderStats(data) {
+            const total = data.reduce((s,r) => s + (parseFloat(r.monto)||0), 0);
+            const cancelaciones = data.filter(r => r.motivo !== 'pedido').length;
+            const pedidos = data.filter(r => r.motivo === 'pedido').length;
+            const tiendas = [...new Set(data.map(r => r.tienda).filter(Boolean))].length;
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card"><div class="stat-icon" style="background:#e8eaf6;color:#1a237e;">📊</div><h4>Total Registros</h4><p>${data.length}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#2e7d32;">💰</div><h4>Monto Total</h4><p>$${total.toFixed(2)}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#ffebee;color:#c62828;">❌</div><h4>Cancelaciones</h4><p>${cancelaciones}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1565c0;">📦</div><h4>Pedidos</h4><p>${pedidos}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#fff3e0;color:#ef6c00;">🏪</div><h4>Tiendas Activas</h4><p>${tiendas}</p></div>`;
+        }
+
+        let adminRecordsMap = {};
+
+        function renderAdminTable(data) {
+            const tbody = document.getElementById('adminTableBody');
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>'; return; }
+            adminRecordsMap = {};
+            tbody.innerHTML = data.map(r => {
+                adminRecordsMap[r.id] = r;
+                const ticketsImg = r.fotoTickets || r.imagen;
+                const ticketsHtml = ticketsImg ? `<img src="${ticketsImg}" class="ticket-thumb" onclick="openModal('${ticketsImg}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
+                const productoHtml = r.fotoProducto ? `<img src="${r.fotoProducto}" class="ticket-thumb" onclick="openModal('${r.fotoProducto}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
+
+                let tiendaOpts = '<option value="">Seleccionar...</option>';
+                TIENDAS.forEach(t => { tiendaOpts += `<option value="${t}" ${r.tienda===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`; });
+                let motivoOpts = '<option value="">Seleccionar...</option>';
+                MOTIVOS.forEach(m => { motivoOpts += `<option value="${m}" ${r.motivo===m?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`; });
+
+                let respuestaHtml = '';
+                if (r.respuesta === 'cancelado') respuestaHtml = '<span class="response-status cancelado">❌ Cancelado</span>';
+                else if (r.respuesta === 'seguimiento') respuestaHtml = '<span class="response-status seguimiento">🔄 Seguimiento</span>';
+                respuestaHtml += `<button class="response-btn" onclick="openRespuestaModal('${r.id}')">Respuesta</button>`;
+
+                return `<tr>
+                    <td><input type="date" class="edit-field-input" value="${r.fecha || ''}" onchange="requestFieldEdit('${r.id}','fecha',this.value,'${r.fecha||''}',this.value)"></td>
+                    <td><select class="edit-field-input" onchange="requestFieldEdit('${r.id}','tienda',this.value,'${r.tienda||''}',this.value)">${tiendaOpts}</select></td>
+                    <td><input type="text" class="edit-field-input" value="${r.folio || ''}" onchange="requestFieldEdit('${r.id}','folio',this.value,'${(r.folio||'').replace(/'/g,"\\'")}',this.value)"></td>
+                    <td><input type="text" inputmode="decimal" class="edit-field-input" value="${formatDisplayMonto(r.monto)}" oninput="formatMontoInputGeneric(this)" onchange="requestFieldEdit('${r.id}','monto',this.value,'${formatDisplayMonto(r.monto)}',this.value)"></td>
+                    <td><select class="edit-field-input" onchange="requestFieldEdit('${r.id}','motivo',this.value,'${r.motivo||''}',this.value)">${motivoOpts}</select></td>
+                    <td><textarea class="edit-field-input" onchange="requestFieldEdit('${r.id}','notas',this.value,'${(r.notas||'').replace(/'/g,"\\'")}',this.value)">${r.notas || ''}</textarea></td>
+                    <td>${ticketsHtml}</td>
+                    <td>${productoHtml}</td>
+                    <td><button class="delete-row" onclick="deleteAdminRecord('${r.id}')">Eliminar</button></td>
+                    <td style="white-space:nowrap;">${respuestaHtml}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function formatMontoInputGeneric(inputEl) {
+            let raw = inputEl.value.replace(/[^0-9.]/g, '');
+            const firstDot = raw.indexOf('.');
+            if (firstDot !== -1) raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, '');
+            let parts = raw.split('.');
+            let intPart = (parts[0] || '').replace(/^0+(?=\d)/, '');
+            let decPart = parts.length > 1 ? parts[1].slice(0, 2) : undefined;
+            const formattedInt = intPart ? Number(intPart).toLocaleString('en-US') : '';
+            inputEl.value = decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
+        }
+
+        let editContext = null;
+
+        function fieldLabel(field) {
+            return { fecha:'Fecha', tienda:'Tienda', folio:'Folio', monto:'Monto', motivo:'Motivo', notas:'Notas' }[field] || field;
+        }
+
+        function requestFieldEdit(recordId, field, rawNewValue, displayOld, displayNew) {
+            const record = adminRecordsMap[recordId];
+            if (!record) return;
+            let newValueToStore = rawNewValue;
+            if (field === 'monto') {
+                newValueToStore = rawNewValue.replace(/,/g, '');
+            }
+            const oldValueToStore = record[field] || '';
+            if (String(newValueToStore) === String(oldValueToStore)) return;
+
+            editContext = { recordId, field, newValue: newValueToStore };
+            document.getElementById('editFieldLabel').textContent = fieldLabel(field);
+            document.getElementById('editOldValue').textContent = displayOld || '(vacío)';
+            document.getElementById('editNewValue').textContent = displayNew || '(vacío)';
+            document.getElementById('editMotivo').value = '';
+            document.getElementById('editPor').value = '';
+            document.getElementById('editConfirmModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeEditConfirmModal(e) {
+            if (e && e.target !== document.getElementById('editConfirmModal')) return;
+            document.getElementById('editConfirmModal').classList.remove('active');
+            document.body.style.overflow = '';
+            editContext = null;
+            updateAdmin();
+        }
+
+        async function confirmFieldEdit() {
+            if (!editContext) return;
+            const motivo = document.getElementById('editMotivo').value.trim();
+            const editor = document.getElementById('editPor').value.trim();
+            if (!motivo) { showToast('Indica el motivo de la modificación', 'error'); return; }
+            if (!editor) { showToast('Indica quién está modificando', 'error'); return; }
+
+            const { recordId, field, newValue } = editContext;
+            const record = adminRecordsMap[recordId];
+            const oldValue = record ? (record[field] || '') : '';
+
+            document.getElementById('loadingOverlay').classList.add('active');
+            try {
+                const editEntry = { field, oldValue, newValue, motivo, editor, at: new Date().toISOString() };
+                if (firebaseReady) {
+                    const docRef = fbRefs.doc(db, 'registros', recordId);
+                    const existingHistory = Array.isArray(record.editHistory) ? record.editHistory : [];
+                    await fbRefs.updateDoc(docRef, { [field]: newValue, editHistory: [...existingHistory, editEntry] });
+                } else {
+                    const idx = allRecords.findIndex(r => String(r.id) === String(recordId));
+                    if (idx !== -1) {
+                        allRecords[idx][field] = newValue;
+                        allRecords[idx].editHistory = [...(allRecords[idx].editHistory || []), editEntry];
+                        localStorage.setItem('sentRecords', JSON.stringify(allRecords));
+                    }
+                    updateAdmin();
+                }
+                showToast('✅ Cambio guardado', 'success');
+                document.getElementById('editConfirmModal').classList.remove('active');
+                document.body.style.overflow = '';
+                editContext = null;
+            } catch (err) {
+                showToast('Error al guardar cambio: ' + err.message, 'error');
+            } finally {
+                document.getElementById('loadingOverlay').classList.remove('active');
+            }
+        }
+
+        async function deleteAdminRecord(recordId) {
+            if(!confirm('¿Estás seguro de eliminar este registro?')) return;
+            try {
+                if (firebaseReady) {
+                    await fbRefs.deleteDoc(fbRefs.doc(db, 'registros', recordId));
+                } else {
+                    allRecords = allRecords.filter(r => String(r.id) !== String(recordId));
+                    localStorage.setItem('sentRecords', JSON.stringify(allRecords));
+                    updateAdmin();
+                }
+                showToast('Registro eliminado', 'success');
+            } catch (err) { showToast('Error al eliminar: ' + err.message, 'error'); }
+        }
+
+        // ---- Respuesta (Cancelado / Seguimiento) ----
+        let respuestaContext = null;
+
+        function openRespuestaModal(recordId) {
+            const record = adminRecordsMap[recordId];
+            if (!record) return;
+            respuestaContext = { recordId, tipo: record.respuesta || null, foto: record.fotoEvidencia || '' };
+            document.getElementById('optCancelado').classList.remove('selected', 'cancelado');
+            document.getElementById('optSeguimiento').classList.remove('selected', 'seguimiento');
+            document.getElementById('evidenciaSection').style.display = 'none';
+            document.getElementById('evidenciaBox').innerHTML = '<span class="photo-icon">📷</span><span class="photo-label">Subir o tomar foto de evidencia</span>';
+            document.getElementById('evidenciaBox').classList.remove('has-photo');
+            if (respuestaContext.tipo) selectRespuestaTipo(respuestaContext.tipo, true);
+            updateRespuestaSendButtonState();
+            document.getElementById('respuestaModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeRespuestaModal(e) {
+            if (e && e.target !== document.getElementById('respuestaModal')) return;
+            document.getElementById('respuestaModal').classList.remove('active');
+            document.body.style.overflow = '';
+            respuestaContext = null;
+        }
+
+        function selectRespuestaTipo(tipo, skipReassign) {
+            if (!respuestaContext) return;
+            respuestaContext.tipo = tipo;
+            document.getElementById('optCancelado').classList.toggle('selected', tipo === 'cancelado');
+            document.getElementById('optCancelado').classList.toggle('cancelado', tipo === 'cancelado');
+            document.getElementById('optSeguimiento').classList.toggle('selected', tipo === 'seguimiento');
+            document.getElementById('optSeguimiento').classList.toggle('seguimiento', tipo === 'seguimiento');
+            document.getElementById('evidenciaSection').style.display = tipo === 'cancelado' ? 'block' : 'none';
+            if (respuestaContext.foto && tipo === 'cancelado') {
+                document.getElementById('evidenciaBox').innerHTML = `<img src="${respuestaContext.foto}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">`;
+                document.getElementById('evidenciaBox').classList.add('has-photo');
+            }
+            updateRespuestaSendButtonState();
+        }
+
+        function uploadEvidenciaFoto() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = async (e) => {
+                if (e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = async (ev) => {
+                        const compressed = await compressImage(ev.target.result, 800, 0.6);
+                        respuestaContext.foto = compressed;
+                        document.getElementById('evidenciaBox').innerHTML = `<img src="${compressed}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">`;
+                        document.getElementById('evidenciaBox').classList.add('has-photo');
+                        updateRespuestaSendButtonState();
+                        showToast('✅ Foto de evidencia agregada', 'success');
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            };
+            input.click();
+        }
+
+        function updateRespuestaSendButtonState() {
+            const btn = document.getElementById('enviarRespuestaBtn');
+            if (!respuestaContext || !respuestaContext.tipo) { btn.disabled = true; return; }
+            if (respuestaContext.tipo === 'cancelado' && !respuestaContext.foto) { btn.disabled = true; return; }
+            btn.disabled = false;
+        }
+
+        async function enviarRespuestaWhatsApp() {
+            if (!respuestaContext || !respuestaContext.tipo) return;
+            if (respuestaContext.tipo === 'cancelado' && !respuestaContext.foto) {
+                showToast('❌ Falta la foto de evidencia', 'error');
+                return;
+            }
+            const record = adminRecordsMap[respuestaContext.recordId];
+            if (!record) return;
+
+            document.getElementById('loadingOverlay').classList.add('active');
+            try {
+                const tipoLabel = respuestaContext.tipo === 'cancelado' ? 'CANCELADO' : 'SEGUIMIENTO';
+                let msg = `*📨 RESPUESTA DE TICKET*\n\n📅 Fecha: ${record.fecha}\n🏪 Tienda: ${record.tienda}\n📋 Folio: ${record.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(record.monto) || '0.00'}\n📝 Motivo: ${record.motivo}\n\n*Respuesta: ${tipoLabel}*`;
+                if (respuestaContext.tipo === 'cancelado') {
+                    msg += `\n📸 Evidencia: Adjunta`;
+                    // Link automático para ver la foto de evidencia (solo cuando es CANCELADO y el registro está en Firebase)
+                    const rid = respuestaContext.recordId;
+                    if (firebaseReady && rid && !String(rid).startsWith('local_')) {
+                        const base = window.location.origin + window.location.pathname;
+                        const link = base + '?ticket=' + encodeURIComponent(rid);
+                        msg += `\n\n👉 Ver foto de evidencia:\n${link}`;
+                    }
+                }
+                msg += `\n\n_Enviado desde CANCELACIONES V2.1_`;
+
+                const updateData = {
+                    respuesta: respuestaContext.tipo,
+                    respuestaAt: new Date().toISOString()
+                };
+                if (respuestaContext.tipo === 'cancelado') updateData.fotoEvidencia = respuestaContext.foto;
+
+                if (firebaseReady) {
+                    await fbRefs.updateDoc(fbRefs.doc(db, 'registros', respuestaContext.recordId), updateData);
+                } else {
+                    const idx = allRecords.findIndex(r => String(r.id) === String(respuestaContext.recordId));
+                    if (idx !== -1) {
+                        Object.assign(allRecords[idx], updateData);
+                        localStorage.setItem('sentRecords', JSON.stringify(allRecords));
+                    }
+                    updateAdmin();
+                }
+
+                const encoded = encodeURIComponent(msg);
+                window.open(`https://wa.me/?text=${encoded}`, '_blank');
+                showToast('✅ Respuesta guardada y WhatsApp abierto', 'success');
+                closeRespuestaModal();
+            } catch (err) {
+                showToast('Error al guardar respuesta: ' + err.message, 'error');
+            } finally {
+                document.getElementById('loadingOverlay').classList.remove('active');
+            }
+        }
+
+        function renderCharts(data) {
+            Object.values(charts).forEach(c => { if(c) c.destroy(); });
+            const cancelByTienda = {}; TIENDAS.forEach(t => cancelByTienda[t] = 0);
+            data.filter(r => r.motivo !== 'pedido').forEach(r => { if(r.tienda) cancelByTienda[r.tienda] = (cancelByTienda[r.tienda]||0) + 1; });
+            charts.cancelaciones = new Chart(document.getElementById('chartCancelaciones'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Cancelaciones', data: TIENDAS.map(t => cancelByTienda[t]), backgroundColor: 'rgba(26, 35, 126, 0.75)', borderColor: '#1a237e', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
+            const montoByTienda = {}; TIENDAS.forEach(t => montoByTienda[t] = 0);
+            data.filter(r => r.motivo !== 'pedido').forEach(r => { if(r.tienda) montoByTienda[r.tienda] = (montoByTienda[r.tienda]||0) + (parseFloat(r.monto)||0); });
+            charts.montos = new Chart(document.getElementById('chartMontos'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Monto Cancelado ($)', data: TIENDAS.map(t => montoByTienda[t].toFixed(2)), backgroundColor: 'rgba(198, 40, 40, 0.7)', borderColor: '#c62828', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+            const motivoCount = {}; MOTIVOS.forEach(m => motivoCount[m] = 0); data.filter(r => r.motivo !== 'pedido' && r.motivo).forEach(r => { motivoCount[r.motivo] = (motivoCount[r.motivo]||0) + 1; });
+            charts.motivos = new Chart(document.getElementById('chartMotivos'), { type: 'doughnut', data: { labels: MOTIVOS.filter(m => m !== 'pedido').map(m => m.charAt(0).toUpperCase()+m.slice(1)), datasets: [{ data: MOTIVOS.filter(m => m !== 'pedido').map(m => motivoCount[m]), backgroundColor: ['#1a237e','#283593','#3949ab','#5c6bc0','#7986cb','#9fa8da'], borderWidth: 2, borderColor: '#ffffff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } } });
+            const pedidoByTienda = {}; TIENDAS.forEach(t => pedidoByTienda[t] = 0); data.filter(r => r.motivo === 'pedido').forEach(r => { if(r.tienda) pedidoByTienda[r.tienda] = (pedidoByTienda[r.tienda]||0) + (parseFloat(r.monto)||0); });
+            charts.pedidos = new Chart(document.getElementById('chartPedidos'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Monto Pedido ($)', data: TIENDAS.map(t => pedidoByTienda[t].toFixed(2)), backgroundColor: 'rgba(46, 125, 50, 0.7)', borderColor: '#2e7d32', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+        }
+
+        function exportAdminExcel() {
+            const filterDate = document.getElementById('filterDate').value;
+            const filterTienda = document.getElementById('filterTienda').value;
+            const filterFolio = document.getElementById('filterFolio').value.toLowerCase();
+            let filtered = allRecords.filter(r => { if(filterDate && r.fecha !== filterDate) return false; if(filterTienda && r.tienda !== filterTienda) return false; if(filterFolio && (!r.folio || !r.folio.toLowerCase().includes(filterFolio))) return false; return true; });
+            const ws_data = [['Fecha','Tienda','Folio','Monto','Motivo','Notas'], ...filtered.map(r => [r.fecha, r.tienda, r.folio, r.monto, r.motivo, r.notas])];
+            const ws = XLSX.utils.aoa_to_sheet(ws_data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Reporte'); ws['!cols'] = [{wch:12},{wch:15},{wch:12},{wch:10},{wch:20},{wch:30}];
+            XLSX.writeFile(wb, `Reporte_Cancelaciones_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('¡Reporte descargado exitosamente!', 'success');
+        }
+
+        function showCleanDatabaseModal() {
+            const count = allRecords.length;
+            document.getElementById('cleanDbCount').textContent = count;
+            document.getElementById('cleanDbConfirm').checked = false;
+            document.getElementById('cleanDbPassword').value = '';
+            document.getElementById('cleanDbPasswordSection').style.display = 'none';
+            document.getElementById('cleanDbBtn').disabled = true;
+            document.getElementById('cleanDbCheckboxLabel').style.borderColor = '#e8ecf1';
+            document.getElementById('cleanDbCheckboxLabel').style.background = 'transparent';
+            document.getElementById('cleanDbModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeCleanDbModal(e) {
+            if(e && e.target !== document.getElementById('cleanDbModal')) return;
+            document.getElementById('cleanDbModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function toggleCleanDbButton() {
+            const checked = document.getElementById('cleanDbConfirm').checked;
+            const label = document.getElementById('cleanDbCheckboxLabel');
+            if(checked) {
+                label.style.borderColor = '#c62828';
+                label.style.background = '#ffebee';
+                document.getElementById('cleanDbPasswordSection').style.display = 'block';
+                setTimeout(() => document.getElementById('cleanDbPassword').focus(), 100);
+            } else {
+                label.style.borderColor = '#e8ecf1';
+                label.style.background = 'transparent';
+                document.getElementById('cleanDbPasswordSection').style.display = 'none';
+                document.getElementById('cleanDbBtn').disabled = true;
+            }
+        }
+
+        async function confirmCleanDatabase() {
+            const password = document.getElementById('cleanDbPassword').value;
+            if(password !== ADMIN_PASS) {
+                showToast('Contraseña incorrecta', 'error');
+                document.getElementById('cleanDbPassword').value = '';
+                document.getElementById('cleanDbPassword').focus();
+                return;
+            }
+
+            const count = allRecords.length;
+            if(count === 0) {
+                showToast('No hay registros para eliminar', 'error');
+                closeCleanDbModal();
+                return;
+            }
+
+            if(!confirm(`⚠️ ÚLTIMA CONFIRMACIÓN\n\nVas a eliminar ${count} registros permanentemente.\n\n¿Estás absolutamente seguro?`)) {
+                return;
+            }
+
+            document.getElementById('loadingOverlay').classList.add('active');
+            document.querySelector('.loading-text').textContent = 'Eliminando registros...';
+
+            try {
+                if(firebaseReady) {
+                    // Delete from Firestore - get fresh list first to ensure we have correct IDs
+                    const registrosRef = fbRefs.collection(db, 'registros');
+                    const snapshot = await fbRefs.getDocs(registrosRef);
+                    const deletePromises = [];
+                    snapshot.forEach(doc => {
+                        deletePromises.push(fbRefs.deleteDoc(doc.ref));
+                    });
+                    if (deletePromises.length > 0) {
+                        await Promise.all(deletePromises);
+                    }
+                }
+
+                // Clear local data
+                allRecords = [];
+                localStorage.setItem('sentRecords', JSON.stringify(allRecords));
+
+                closeCleanDbModal();
+                updateAdmin();
+                showToast(`✅ ${count} registros eliminados correctamente`, 'success');
+            } catch(err) {
+                console.error(err);
+                showToast('Error al eliminar: ' + err.message, 'error');
+            } finally {
+                document.getElementById('loadingOverlay').classList.remove('active');
+                document.querySelector('.loading-text').textContent = 'Guardando registros...';
+            }
+        }
+
+        function showToast(msg, type='success') { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = 'toast show ' + type; setTimeout(() => toast.classList.remove('show'), 3000); }
+    </script>
+</body>
+</html>
