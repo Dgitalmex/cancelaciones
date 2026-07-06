@@ -107,6 +107,28 @@
         .btn-warning:hover { background: #ef6c00; }
         .btn-danger { background: #c62828; color: white; }
         .btn-danger:hover { background: #b71c1c; }
+        .tienda-grid-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; }
+        .tienda-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; margin-top: 5px; }
+        .tienda-card { position: relative; border-radius: 14px; padding: 20px; cursor: pointer; color: #ffffff; box-shadow: 0 4px 16px rgba(0,0,0,0.12); transition: transform 0.25s, box-shadow 0.25s; overflow: hidden; }
+        .tienda-card:hover { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,0.2); }
+        .tienda-card-name { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 14px; text-transform: capitalize; display: flex; align-items: center; gap: 8px; }
+        .tienda-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+        .tienda-card-stat { background: rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 10px; }
+        .tienda-card-stat .n { font-size: 1.15rem; font-weight: 700; line-height: 1.2; }
+        .tienda-card-stat .l { font-size: 0.65rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; }
+        .tienda-card-pending { position: absolute; top: 14px; right: 14px; background: #ff5252; color: white; border-radius: 20px; padding: 4px 10px; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); animation: pulsePending 1.8s infinite; }
+        @keyframes pulsePending { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        .tienda-card-empty { text-align: center; padding: 40px; color: #6b7c93; grid-column: 1/-1; }
+        .tienda-back-btn { margin-bottom: 15px; font-size: 0.9rem; padding: 14px 26px; box-shadow: 0 4px 14px rgba(26,35,126,0.3); }
+        @media (max-width: 768px) { .tienda-back-btn { width: 100%; } }
+        .tienda-detail-title { font-size: 1.1rem; font-weight: 700; color: #1a237e; margin-bottom: 18px; text-transform: capitalize; }
+        .tienda-card-clickable { cursor: pointer; }
+        .tienda-card-datefilter { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.25); cursor: default; }
+        .tienda-card-datefilter-label { font-size: 0.65rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; }
+        .tienda-card-datefilter-row { display: flex; align-items: center; gap: 5px; }
+        .tienda-card-datefilter-row input[type="date"] { flex: 1; min-width: 0; border: none; border-radius: 6px; padding: 6px 6px; font-size: 0.7rem; font-family: inherit; background: rgba(255,255,255,0.9); color: #2c3e50; cursor: pointer; }
+        .tienda-card-datefilter-row span { font-size: 0.7rem; opacity: 0.85; }
+        .tienda-card-datefilter-clear { background: rgba(255,255,255,0.9); border: none; border-radius: 6px; width: 24px; height: 24px; min-width: 24px; color: #c62828; font-weight: 700; cursor: pointer; font-size: 0.75rem; }
         .btn-secondary { background: #546e7a; color: white; }
         .btn-secondary:hover { background: #455a64; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
@@ -167,6 +189,10 @@
             #adminTable th:nth-child(10), #adminTable td:nth-child(10) { min-width: 150px; }
             .card .table-container { position: relative; }
             .card .table-container::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 24px; pointer-events: none; background: linear-gradient(to right, rgba(255,255,255,0), rgba(0,0,0,0.06)); }
+            .tienda-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+            .tienda-card { padding: 14px; }
+            .tienda-card-name { font-size: 0.9rem; margin-bottom: 10px; }
+            .tienda-card-stat .n { font-size: 1rem; }
         }
         @media (min-width: 769px) {
             .mobile-cards { display: none !important; }
@@ -527,23 +553,7 @@
                 <div id="adminSubPanel">
                 <div class="section-header">
                     <div class="section-title">📊 Panel de Control</div>
-                    <div class="section-desc">Visualiza y administra todos los registros enviados</div>
-                </div>
-
-                <div class="stats-grid" id="statsGrid"></div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon">🔍</div>
-                        <h3>Filtros de Búsqueda</h3>
-                    </div>
-                    <div class="admin-filters">
-                        <input type="date" id="filterDate" onchange="updateAdmin()">
-                        <select id="filterTienda" onchange="updateAdmin()"><option value="">Todas las tiendas</option></select>
-                        <input type="text" id="filterFolio" placeholder="Buscar folio..." oninput="updateAdmin()">
-                        <button class="btn btn-warning" onclick="exportAdminExcel()">📊 Exportar Reporte</button>
-                        <button class="btn btn-danger" onclick="showCleanDatabaseModal()">🗑️ Limpiar Base de Datos</button>
-                    </div>
+                    <div class="section-desc">Selecciona una tienda para ver sus registros y estadísticas</div>
                 </div>
 
                 <div class="period-selector">
@@ -552,26 +562,63 @@
                     <button class="period-btn" onclick="setPeriod('month')">Mes</button>
                 </div>
 
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon">📋</div>
-                        <h3>Registros Enviados</h3>
+                <!-- Vista principal: tarjetas por tienda -->
+                <div id="tiendaGridView">
+                    <div class="card tienda-grid-toolbar">
+                        <div class="card-header" style="margin-bottom:0;border-bottom:none;padding-bottom:0;">
+                            <div class="card-icon">🏪</div>
+                            <h3>Tiendas</h3>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                            <button class="btn btn-warning" onclick="exportAdminExcel()">📊 Exportar Reporte</button>
+                            <button class="btn btn-danger" onclick="showCleanDatabaseModal()">🗑️ Limpiar Base de Datos</button>
+                        </div>
                     </div>
-                    <div class="table-container">
-                        <table id="adminTable">
-                            <thead>
-                                <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
-                            </thead>
-                            <tbody id="adminTableBody"></tbody>
-                        </table>
-                    </div>
+                    <div class="tienda-grid" id="tiendaCardsGrid"></div>
                 </div>
 
-                <div class="charts-grid">
-                    <div class="chart-card"><h3>Cancelaciones por Tienda</h3><div class="chart-container"><canvas id="chartCancelaciones"></canvas></div></div>
-                    <div class="chart-card"><h3>Monto Cancelado por Tienda</h3><div class="chart-container"><canvas id="chartMontos"></canvas></div></div>
-                    <div class="chart-card"><h3>Motivos de Cancelación</h3><div class="chart-container"><canvas id="chartMotivos"></canvas></div></div>
-                    <div class="chart-card"><h3>Montos de Pedido</h3><div class="chart-container"><canvas id="chartPedidos"></canvas></div></div>
+                <!-- Vista de detalle de una tienda -->
+                <div id="tiendaDetailView" style="display:none;">
+                    <button class="btn btn-primary tienda-back-btn" onclick="closeTiendaDetail()">← Todas las tiendas</button>
+                    <div class="tienda-detail-title" id="tiendaDetailTitle"></div>
+
+                    <div class="stats-grid" id="statsGrid"></div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🔍</div>
+                            <h3>Filtros de Búsqueda</h3>
+                        </div>
+                        <div class="admin-filters">
+                            <input type="date" id="filterDate" onchange="updateAdmin()">
+                            <select id="filterTienda" onchange="updateAdmin()"><option value="">Todas las tiendas</option></select>
+                            <input type="text" id="filterFolio" placeholder="Buscar folio..." oninput="updateAdmin()">
+                            <button class="btn btn-warning" onclick="exportAdminExcel()">📊 Exportar Reporte</button>
+                            <button class="btn btn-danger" onclick="showCleanDatabaseModal()">🗑️ Limpiar Base de Datos</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📋</div>
+                            <h3>Registros Enviados</h3>
+                        </div>
+                        <div class="table-container">
+                            <table id="adminTable">
+                                <thead>
+                                    <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
+                                </thead>
+                                <tbody id="adminTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card"><h3>Cancelaciones por Tienda</h3><div class="chart-container"><canvas id="chartCancelaciones"></canvas></div></div>
+                        <div class="chart-card"><h3>Monto Cancelado por Tienda</h3><div class="chart-container"><canvas id="chartMontos"></canvas></div></div>
+                        <div class="chart-card"><h3>Motivos de Cancelación</h3><div class="chart-container"><canvas id="chartMotivos"></canvas></div></div>
+                        <div class="chart-card"><h3>Montos de Pedido</h3><div class="chart-container"><canvas id="chartPedidos"></canvas></div></div>
+                    </div>
                 </div>
                 </div><!-- /#adminSubPanel -->
                 <div id="adminSubMarcador" style="display:none;">
@@ -686,43 +733,14 @@
                 <p>Selecciona el tipo de respuesta para este ticket</p>
             </div>
             <div class="preview-modal-body">
-                <div style="display:flex;gap:12px;margin-bottom:18px;">
+                <div style="display:flex;gap:12px;margin-bottom:6px;">
                     <div class="respuesta-option" id="optCancelado" onclick="selectRespuestaTipo('cancelado')">❌<br>Cancelado</div>
                     <div class="respuesta-option" id="optSeguimiento" onclick="selectRespuestaTipo('seguimiento')">🔄<br>Seguimiento</div>
-                </div>
-                <div id="evidenciaSection" style="display:none;">
-                    <div class="photo-section-title">📸 Foto de Evidencia (obligatoria)</div>
-                    <div class="photo-upload-box" id="evidenciaBox" onclick="uploadEvidenciaFoto()" style="min-height:90px;" tabindex="0">
-                        <span class="photo-icon">📷</span>
-                        <span class="photo-label">Sube una imagen, pégala (Ctrl+V) o usa la cámara</span>
-                    </div>
-                    <div style="display:flex;gap:8px;margin-top:8px;">
-                        <button type="button" class="btn btn-secondary" style="flex:1;font-size:0.8rem;padding:8px;" onclick="uploadEvidenciaFoto()">📁 Subir archivo</button>
-                        <button type="button" class="btn btn-secondary" style="flex:1;font-size:0.8rem;padding:8px;" onclick="openEvidenciaCamera()">📸 Usar cámara</button>
-                    </div>
                 </div>
             </div>
             <div class="preview-modal-footer">
                 <button class="btn btn-secondary" onclick="closeRespuestaModal()">❌ Cancelar</button>
                 <button class="btn btn-success" id="enviarRespuestaBtn" onclick="enviarRespuestaWhatsApp()" disabled style="flex:1;">📤 Enviar por WhatsApp</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="preview-modal-overlay" id="cameraModal" onclick="closeEvidenciaCamera(event)">
-        <div class="preview-modal-content" onclick="event.stopPropagation()" style="max-width: 420px;">
-            <div class="preview-modal-header" style="background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);">
-                <h2>📸 TOMAR FOTO</h2>
-                <p>Enfoca la evidencia y presiona capturar</p>
-            </div>
-            <div class="preview-modal-body" style="text-align:center;">
-                <video id="cameraVideo" autoplay playsinline style="width:100%;border-radius:10px;background:#000;max-height:320px;object-fit:cover;"></video>
-                <canvas id="cameraCanvas" style="display:none;"></canvas>
-                <div id="cameraError" style="display:none;color:#c62828;font-size:0.85rem;margin-top:10px;"></div>
-            </div>
-            <div class="preview-modal-footer">
-                <button class="btn btn-secondary" onclick="closeEvidenciaCamera()">❌ Cancelar</button>
-                <button class="btn btn-success" style="flex:1;" onclick="captureEvidenciaPhoto()">📸 Capturar</button>
             </div>
         </div>
     </div>
@@ -1252,6 +1270,17 @@
             updateAdmin();
         }
 
+        function filterByPeriod(data, period) {
+            const now = new Date();
+            return data.filter(r => {
+                const rDate = new Date(r.fecha + 'T00:00:00');
+                if(period === 'day') { const today = new Date(); today.setHours(0,0,0,0); rDate.setHours(0,0,0,0); return rDate.getTime() === today.getTime(); }
+                else if(period === 'week') { const weekAgo = new Date(now.getTime() - 7*24*60*60*1000); weekAgo.setHours(0,0,0,0); return rDate >= weekAgo; }
+                else if(period === 'month') { return rDate.getMonth() === now.getMonth() && rDate.getFullYear() === now.getFullYear(); }
+                return true;
+            });
+        }
+
         function updateAdmin() {
             if(!isAdminLogged) return;
             const filterDate = document.getElementById('filterDate').value;
@@ -1265,18 +1294,109 @@
                 return true;
             });
 
-            const now = new Date();
-            filtered = filtered.filter(r => {
-                const rDate = new Date(r.fecha + 'T00:00:00');
-                if(currentPeriod === 'day') { const today = new Date(); today.setHours(0,0,0,0); rDate.setHours(0,0,0,0); return rDate.getTime() === today.getTime(); }
-                else if(currentPeriod === 'week') { const weekAgo = new Date(now.getTime() - 7*24*60*60*1000); weekAgo.setHours(0,0,0,0); return rDate >= weekAgo; }
-                else if(currentPeriod === 'month') { return rDate.getMonth() === now.getMonth() && rDate.getFullYear() === now.getFullYear(); }
-                return true;
-            });
+            filtered = filterByPeriod(filtered, currentPeriod);
 
             renderStats(filtered);
             renderAdminTable(filtered);
             renderCharts(filtered);
+
+            // Tarjetas por tienda: cada una usa su propio filtro de fecha si lo
+            // tiene definido; si no, cae al período global (Hoy/Semana/Mes).
+            renderTiendaCards();
+        }
+
+        const TIENDA_COLORS = ['#1a237e','#00695c','#c62828','#4527a0','#ef6c00','#00838f','#ad1457','#2e7d32','#5d4037','#283593','#6a1b9a','#0277bd','#37474f'];
+
+        function tiendaColor(tienda) {
+            const idx = TIENDAS.indexOf(tienda);
+            return TIENDA_COLORS[idx >= 0 ? idx % TIENDA_COLORS.length : Math.abs(tienda.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % TIENDA_COLORS.length];
+        }
+
+        let selectedTienda = '';
+        let tiendaFilters = {}; // { [tienda]: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } }
+
+        function getTiendaRecords(t) {
+            let recs = allRecords.filter(r => r.tienda === t);
+            const rf = tiendaFilters[t];
+            if (rf && (rf.from || rf.to)) {
+                recs = recs.filter(r => {
+                    if (rf.from && r.fecha < rf.from) return false;
+                    if (rf.to && r.fecha > rf.to) return false;
+                    return true;
+                });
+            } else {
+                recs = filterByPeriod(recs, currentPeriod);
+            }
+            return recs;
+        }
+
+        function setTiendaDateFilter(t, field, value) {
+            if (!tiendaFilters[t]) tiendaFilters[t] = { from: '', to: '' };
+            tiendaFilters[t][field] = value;
+            renderTiendaCards();
+        }
+
+        function clearTiendaDateFilter(t) {
+            delete tiendaFilters[t];
+            renderTiendaCards();
+        }
+
+        function renderTiendaCards() {
+            const grid = document.getElementById('tiendaCardsGrid');
+            if (!grid) return;
+            grid.innerHTML = TIENDAS.map(t => {
+                const recs = getTiendaRecords(t);
+                const total = recs.reduce((s,r) => s + (parseFloat(r.monto)||0), 0);
+                const cancelaciones = recs.filter(r => r.motivo !== 'pedido').length;
+                const pedidos = recs.filter(r => r.motivo === 'pedido').length;
+                const pendientes = recs.filter(r => r.respuesta !== 'cancelado').length;
+                const color = tiendaColor(t);
+                const label = t.charAt(0).toUpperCase() + t.slice(1);
+                const rf = tiendaFilters[t] || { from: '', to: '' };
+                const hasRange = !!(rf.from || rf.to);
+                return `<div class="tienda-card" style="background:linear-gradient(135deg, ${color} 0%, ${color}cc 100%);">
+                    ${pendientes > 0 ? `<div class="tienda-card-pending">⚠️ ${pendientes} pendiente${pendientes>1?'s':''}</div>` : ''}
+                    <div class="tienda-card-clickable" onclick="openTiendaDetail('${t}')">
+                        <div class="tienda-card-name">🏪 ${label}</div>
+                        <div class="tienda-card-stats">
+                            <div class="tienda-card-stat"><div class="n">${recs.length}</div><div class="l">Registros</div></div>
+                            <div class="tienda-card-stat"><div class="n">$${total.toFixed(0)}</div><div class="l">Monto</div></div>
+                            <div class="tienda-card-stat"><div class="n">${cancelaciones}</div><div class="l">Cancel.</div></div>
+                            <div class="tienda-card-stat"><div class="n">${pedidos}</div><div class="l">Pedidos</div></div>
+                        </div>
+                    </div>
+                    <div class="tienda-card-datefilter" onclick="event.stopPropagation()">
+                        <span class="tienda-card-datefilter-label">${hasRange ? '📅 Rango personalizado' : '📅 Filtrar por fecha'}</span>
+                        <div class="tienda-card-datefilter-row">
+                            <input type="date" value="${rf.from||''}" onchange="setTiendaDateFilter('${t}','from',this.value)" title="Desde">
+                            <span>a</span>
+                            <input type="date" value="${rf.to||''}" onchange="setTiendaDateFilter('${t}','to',this.value)" title="Hasta">
+                            ${hasRange ? `<button class="tienda-card-datefilter-clear" onclick="clearTiendaDateFilter('${t}')" title="Quitar filtro">✕</button>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function openTiendaDetail(tienda) {
+            selectedTienda = tienda;
+            document.getElementById('filterTienda').value = tienda;
+            document.getElementById('tiendaDetailTitle').textContent = '🏪 ' + tienda.charAt(0).toUpperCase() + tienda.slice(1);
+            document.getElementById('tiendaGridView').style.display = 'none';
+            document.getElementById('tiendaDetailView').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            updateAdmin();
+        }
+
+        function closeTiendaDetail() {
+            selectedTienda = '';
+            document.getElementById('filterTienda').value = '';
+            document.getElementById('filterDate').value = '';
+            document.getElementById('filterFolio').value = '';
+            document.getElementById('tiendaDetailView').style.display = 'none';
+            document.getElementById('tiendaGridView').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            updateAdmin();
         }
 
         function renderStats(data) {
@@ -1432,17 +1552,13 @@
         function openRespuestaModal(recordId) {
             const record = adminRecordsMap[recordId];
             if (!record) return;
-            respuestaContext = { recordId, tipo: record.respuesta || null, foto: record.fotoEvidencia || '' };
+            respuestaContext = { recordId, tipo: record.respuesta || null };
             document.getElementById('optCancelado').classList.remove('selected', 'cancelado');
             document.getElementById('optSeguimiento').classList.remove('selected', 'seguimiento');
-            document.getElementById('evidenciaSection').style.display = 'none';
-            document.getElementById('evidenciaBox').innerHTML = '<span class="photo-icon">📷</span><span class="photo-label">Sube una imagen, pégala (Ctrl+V) o usa la cámara</span>';
-            document.getElementById('evidenciaBox').classList.remove('has-photo');
-            if (respuestaContext.tipo) selectRespuestaTipo(respuestaContext.tipo, true);
+            if (respuestaContext.tipo) selectRespuestaTipo(respuestaContext.tipo);
             updateRespuestaSendButtonState();
             document.getElementById('respuestaModal').classList.add('active');
             document.body.style.overflow = 'hidden';
-            document.addEventListener('paste', handleEvidenciaPaste);
         }
 
         function closeRespuestaModal(e) {
@@ -1450,146 +1566,57 @@
             document.getElementById('respuestaModal').classList.remove('active');
             document.body.style.overflow = '';
             respuestaContext = null;
-            document.removeEventListener('paste', handleEvidenciaPaste);
         }
 
-        // Pegar imagen de evidencia desde el portapapeles (Ctrl+V)
-        function handleEvidenciaPaste(e) {
-            if (!respuestaContext || respuestaContext.tipo !== 'cancelado') return;
-            const items = e.clipboardData && e.clipboardData.items;
-            if (!items) return;
-            for (const item of items) {
-                if (item.type && item.type.startsWith('image/')) {
-                    const file = item.getAsFile();
-                    if (!file) continue;
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        await setEvidenciaFoto(ev.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                    e.preventDefault();
-                    break;
-                }
-            }
-        }
-
-        // Asigna, comprime y refleja en la UI la foto de evidencia (subida, pegada o capturada)
-        async function setEvidenciaFoto(dataUrl) {
-            const compressed = await compressImage(dataUrl, 800, 0.6);
-            respuestaContext.foto = compressed;
-            document.getElementById('evidenciaBox').innerHTML = `<img src="${compressed}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">`;
-            document.getElementById('evidenciaBox').classList.add('has-photo');
-            updateRespuestaSendButtonState();
-            showToast('✅ Foto de evidencia agregada', 'success');
-        }
-
-        // --- Cámara en vivo para foto de evidencia ---
-        let evidenciaCameraStream = null;
-
-        async function openEvidenciaCamera() {
-            const errorEl = document.getElementById('cameraError');
-            errorEl.style.display = 'none';
-            document.getElementById('cameraModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
-            try {
-                evidenciaCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                document.getElementById('cameraVideo').srcObject = evidenciaCameraStream;
-            } catch (err) {
-                errorEl.textContent = '❌ No se pudo acceder a la cámara. Verifica los permisos del navegador.';
-                errorEl.style.display = 'block';
-            }
-        }
-
-        function closeEvidenciaCamera(e) {
-            if (e && e.target !== document.getElementById('cameraModal')) return;
-            if (evidenciaCameraStream) {
-                evidenciaCameraStream.getTracks().forEach(track => track.stop());
-                evidenciaCameraStream = null;
-            }
-            document.getElementById('cameraModal').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        async function captureEvidenciaPhoto() {
-            const video = document.getElementById('cameraVideo');
-            if (!video.videoWidth) return;
-            const canvas = document.getElementById('cameraCanvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            await setEvidenciaFoto(dataUrl);
-            closeEvidenciaCamera();
-        }
-
-        function selectRespuestaTipo(tipo, skipReassign) {
+        function selectRespuestaTipo(tipo) {
             if (!respuestaContext) return;
             respuestaContext.tipo = tipo;
             document.getElementById('optCancelado').classList.toggle('selected', tipo === 'cancelado');
             document.getElementById('optCancelado').classList.toggle('cancelado', tipo === 'cancelado');
             document.getElementById('optSeguimiento').classList.toggle('selected', tipo === 'seguimiento');
             document.getElementById('optSeguimiento').classList.toggle('seguimiento', tipo === 'seguimiento');
-            document.getElementById('evidenciaSection').style.display = tipo === 'cancelado' ? 'block' : 'none';
-            if (respuestaContext.foto && tipo === 'cancelado') {
-                document.getElementById('evidenciaBox').innerHTML = `<img src="${respuestaContext.foto}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">`;
-                document.getElementById('evidenciaBox').classList.add('has-photo');
-            }
             updateRespuestaSendButtonState();
-        }
-
-        function uploadEvidenciaFoto() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.onchange = async (e) => {
-                if (e.target.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        await setEvidenciaFoto(ev.target.result);
-                    };
-                    reader.readAsDataURL(e.target.files[0]);
-                }
-            };
-            input.click();
         }
 
         function updateRespuestaSendButtonState() {
             const btn = document.getElementById('enviarRespuestaBtn');
             if (!respuestaContext || !respuestaContext.tipo) { btn.disabled = true; return; }
-            if (respuestaContext.tipo === 'cancelado' && !respuestaContext.foto) { btn.disabled = true; return; }
             btn.disabled = false;
+        }
+
+        // Convierte A-Z a Unicode "Sans Bold" para que la respuesta se vea con
+        // una tipografía distinta y más grande dentro de WhatsApp (no soporta
+        // colores/fuentes reales, así que esto es lo más "llamativo" posible
+        // usando solo texto).
+        function toFancyBold(str) {
+            return str.split('').map(ch => {
+                const code = ch.charCodeAt(0);
+                if (code >= 65 && code <= 90) return String.fromCodePoint(0x1D5D4 + (code - 65)); // A-Z
+                if (code >= 48 && code <= 57) return String.fromCodePoint(0x1D7EC + (code - 48)); // 0-9
+                return ch;
+            }).join('');
         }
 
         async function enviarRespuestaWhatsApp() {
             if (!respuestaContext || !respuestaContext.tipo) return;
-            if (respuestaContext.tipo === 'cancelado' && !respuestaContext.foto) {
-                showToast('❌ Falta la foto de evidencia', 'error');
-                return;
-            }
             const record = adminRecordsMap[respuestaContext.recordId];
             if (!record) return;
 
             document.getElementById('loadingOverlay').classList.add('active');
             try {
-                const tipoLabel = respuestaContext.tipo === 'cancelado' ? 'CANCELADO' : 'SEGUIMIENTO';
-                let msg = `*📨 RESPUESTA DE TICKET*\n\n📅 Fecha: ${record.fecha}\n🏪 Tienda: ${record.tienda}\n📋 Folio: ${record.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(record.monto) || '0.00'}\n📝 Motivo: ${record.motivo}\n\n*Respuesta: ${tipoLabel}*`;
-                if (respuestaContext.tipo === 'cancelado') {
-                    msg += `\n📸 Evidencia: Adjunta`;
-                    // Link automático para ver la foto de evidencia (solo cuando es CANCELADO y el registro está en Firebase)
-                    const rid = respuestaContext.recordId;
-                    if (firebaseReady && rid && !String(rid).startsWith('local_')) {
-                        const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, "") + "captura.html";
-                        const link = base + '?ticket=' + encodeURIComponent(rid);
-                        msg += `\n\n👉 Ver foto de evidencia:\n${link}`;
-                    }
-                }
+                const esCancelado = respuestaContext.tipo === 'cancelado';
+                const tipoLabel = esCancelado ? 'CANCELADO' : 'SEGUIMIENTO';
+                const colorBlock = esCancelado ? '🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥' : '🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦';
+                const icon = esCancelado ? '❌' : '🔄';
+
+                let msg = `*📨 RESPUESTA DE TICKET*\n\n📅 Fecha: ${record.fecha}\n🏪 Tienda: ${record.tienda}\n📋 Folio: ${record.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(record.monto) || '0.00'}\n📝 Motivo: ${record.motivo}`;
+                msg += `\n\n${colorBlock}\n${icon} ${toFancyBold(tipoLabel)} ${icon}\n${colorBlock}`;
                 msg += `\n\n_Enviado desde CANCELACIONES V2.1_`;
 
                 const updateData = {
                     respuesta: respuestaContext.tipo,
                     respuestaAt: new Date().toISOString()
                 };
-                if (respuestaContext.tipo === 'cancelado') updateData.fotoEvidencia = respuestaContext.foto;
 
                 if (firebaseReady) {
                     await fbRefs.updateDoc(fbRefs.doc(db, 'registros', respuestaContext.recordId), updateData);
