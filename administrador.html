@@ -548,7 +548,7 @@
                         <div class="card-icon">📋</div>
                         <h3>Registros Enviados</h3>
                     </div>
-                    <div class="table-container">
+                    <div class="table-container desktop-only">
                         <table id="adminTable">
                             <thead>
                                 <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
@@ -556,6 +556,7 @@
                             <tbody id="adminTableBody"></tbody>
                         </table>
                     </div>
+                    <div class="mobile-cards" id="adminMobileCards"></div>
                 </div>
 
                 <div class="charts-grid">
@@ -1287,9 +1288,17 @@
 
         function renderAdminTable(data) {
             const tbody = document.getElementById('adminTableBody');
-            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>'; return; }
+            const mobileContainer = document.getElementById('adminMobileCards');
+            if(data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>';
+                if (mobileContainer) mobileContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div>';
+                return;
+            }
             adminRecordsMap = {};
-            tbody.innerHTML = data.map(r => {
+            const desktopRowsHtml = [];
+            const mobileCardsHtml = [];
+
+            data.forEach((r, idx) => {
                 adminRecordsMap[r.id] = r;
                 const ticketsImg = r.fotoTickets || r.imagen;
                 const ticketsHtml = ticketsImg ? `<img src="${ticketsImg}" class="ticket-thumb" onclick="openModal('${ticketsImg}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
@@ -1305,7 +1314,7 @@
                 else if (r.respuesta === 'seguimiento') respuestaHtml = '<span class="response-status seguimiento">🔄 Seguimiento</span>';
                 respuestaHtml += `<button class="response-btn" onclick="openRespuestaModal('${r.id}')">Respuesta</button>`;
 
-                return `<tr>
+                desktopRowsHtml.push(`<tr>
                     <td><input type="date" class="edit-field-input" value="${r.fecha || ''}" onchange="requestFieldEdit('${r.id}','fecha',this.value,'${r.fecha||''}',this.value)"></td>
                     <td><select class="edit-field-input" onchange="requestFieldEdit('${r.id}','tienda',this.value,'${r.tienda||''}',this.value)">${tiendaOpts}</select></td>
                     <td><input type="text" class="edit-field-input" value="${r.folio || ''}" onchange="requestFieldEdit('${r.id}','folio',this.value,'${(r.folio||'').replace(/'/g,"\\'")}',this.value)"></td>
@@ -1316,8 +1325,62 @@
                     <td>${productoHtml}</td>
                     <td><button class="delete-row" onclick="deleteAdminRecord('${r.id}')">Eliminar</button></td>
                     <td style="white-space:nowrap;">${respuestaHtml}</td>
-                </tr>`;
-            }).join('');
+                </tr>`);
+
+                mobileCardsHtml.push(`<div class="mobile-card" id="admin-mobile-card-${idx}">
+                    <div class="mobile-card-header">
+                        <div class="mobile-card-number">${idx+1}</div>
+                        <button class="mobile-card-delete" onclick="deleteAdminRecord('${r.id}')">🗑️ Eliminar</button>
+                    </div>
+                    <div class="mobile-row-grid">
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">📅 Fecha</span>
+                            <input type="date" class="mobile-field-input" value="${r.fecha || ''}" onchange="requestFieldEdit('${r.id}','fecha',this.value,'${r.fecha||''}',this.value)">
+                        </div>
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">🏪 Tienda</span>
+                            <select class="mobile-field-select" onchange="requestFieldEdit('${r.id}','tienda',this.value,'${r.tienda||''}',this.value)">${tiendaOpts}</select>
+                        </div>
+                    </div>
+                    <div class="mobile-row-grid">
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">📋 Folio</span>
+                            <input type="text" class="mobile-field-input" value="${r.folio || ''}" onchange="requestFieldEdit('${r.id}','folio',this.value,'${(r.folio||'').replace(/'/g,"\\'")}',this.value)">
+                        </div>
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">💰 Monto</span>
+                            <input type="text" inputmode="decimal" class="mobile-field-input" value="${formatDisplayMonto(r.monto)}" oninput="formatMontoInputGeneric(this)" onchange="requestFieldEdit('${r.id}','monto',this.value,'${formatDisplayMonto(r.monto)}',this.value)">
+                        </div>
+                    </div>
+                    <div class="mobile-field">
+                        <span class="mobile-field-label">📝 Motivo</span>
+                        <select class="mobile-field-select" onchange="requestFieldEdit('${r.id}','motivo',this.value,'${r.motivo||''}',this.value)">${motivoOpts}</select>
+                    </div>
+                    <div class="mobile-field">
+                        <span class="mobile-field-label">📌 Notas</span>
+                        <textarea class="mobile-field-textarea" onchange="requestFieldEdit('${r.id}','notas',this.value,'${(r.notas||'').replace(/'/g,"\\'")}',this.value)">${r.notas || ''}</textarea>
+                    </div>
+
+                    <div class="photo-section-title">📸 Evidencias</div>
+                    <div class="photo-grid">
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">Tickets</span>
+                            <div style="text-align:center;padding:8px 0;">${ticketsHtml}</div>
+                        </div>
+                        <div class="mobile-field">
+                            <span class="mobile-field-label">Producto</span>
+                            <div style="text-align:center;padding:8px 0;">${productoHtml}</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:12px;padding-top:12px;border-top:2px solid #eef2f7;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        ${respuestaHtml}
+                    </div>
+                </div>`);
+            });
+
+            tbody.innerHTML = desktopRowsHtml.join('');
+            if (mobileContainer) mobileContainer.innerHTML = mobileCardsHtml.join('');
         }
 
         function formatMontoInputGeneric(inputEl) {
