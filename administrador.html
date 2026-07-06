@@ -58,7 +58,7 @@
         .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #f0f2f5; }
         .card-header h3 { font-size: 0.95rem; color: #2c3e50; font-weight: 600; }
         .card-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1rem; }
-        .table-container { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e8ecf1; }
+        .table-container { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e8ecf1; -webkit-overflow-scrolling: touch; }
         table { width: 100%; border-collapse: collapse; background: white; min-width: 900px; }
         th { background: #1a237e; color: white; padding: 14px 10px; text-align: left; font-weight: 600; font-size: 0.75rem; position: sticky; top: 0; letter-spacing: 0.5px; text-transform: uppercase; }
         td { padding: 10px; border-bottom: 1px solid #f0f2f5; font-size: 0.85rem; vertical-align: middle; color: #2c3e50; }
@@ -158,6 +158,15 @@
             .login-box { margin: 30px 15px; padding: 30px 20px; }
             .desktop-only { display: none !important; }
             .mobile-cards { display: block; }
+            #adminTable { min-width: 1180px; }
+            #adminTable th, #adminTable td { padding: 12px 10px; font-size: 0.85rem; }
+            #adminTable td input, #adminTable td select, #adminTable td textarea { font-size: 0.9rem; padding: 10px 12px; min-width: 90px; }
+            #adminTable th:nth-child(6), #adminTable td:nth-child(6) { min-width: 160px; }
+            #adminTable th:nth-child(7), #adminTable td:nth-child(7),
+            #adminTable th:nth-child(8), #adminTable td:nth-child(8) { min-width: 80px; }
+            #adminTable th:nth-child(10), #adminTable td:nth-child(10) { min-width: 150px; }
+            .card .table-container { position: relative; }
+            .card .table-container::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 24px; pointer-events: none; background: linear-gradient(to right, rgba(255,255,255,0), rgba(0,0,0,0.06)); }
         }
         @media (min-width: 769px) {
             .mobile-cards { display: none !important; }
@@ -548,7 +557,7 @@
                         <div class="card-icon">📋</div>
                         <h3>Registros Enviados</h3>
                     </div>
-                    <div class="table-container desktop-only">
+                    <div class="table-container">
                         <table id="adminTable">
                             <thead>
                                 <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
@@ -556,7 +565,6 @@
                             <tbody id="adminTableBody"></tbody>
                         </table>
                     </div>
-                    <div class="mobile-cards" id="adminMobileCards"></div>
                 </div>
 
                 <div class="charts-grid">
@@ -1288,17 +1296,9 @@
 
         function renderAdminTable(data) {
             const tbody = document.getElementById('adminTableBody');
-            const mobileContainer = document.getElementById('adminMobileCards');
-            if(data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>';
-                if (mobileContainer) mobileContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div>';
-                return;
-            }
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>'; return; }
             adminRecordsMap = {};
-            const desktopRowsHtml = [];
-            const mobileCardsHtml = [];
-
-            data.forEach((r, idx) => {
+            tbody.innerHTML = data.map(r => {
                 adminRecordsMap[r.id] = r;
                 const ticketsImg = r.fotoTickets || r.imagen;
                 const ticketsHtml = ticketsImg ? `<img src="${ticketsImg}" class="ticket-thumb" onclick="openModal('${ticketsImg}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
@@ -1314,7 +1314,7 @@
                 else if (r.respuesta === 'seguimiento') respuestaHtml = '<span class="response-status seguimiento">🔄 Seguimiento</span>';
                 respuestaHtml += `<button class="response-btn" onclick="openRespuestaModal('${r.id}')">Respuesta</button>`;
 
-                desktopRowsHtml.push(`<tr>
+                return `<tr>
                     <td><input type="date" class="edit-field-input" value="${r.fecha || ''}" onchange="requestFieldEdit('${r.id}','fecha',this.value,'${r.fecha||''}',this.value)"></td>
                     <td><select class="edit-field-input" onchange="requestFieldEdit('${r.id}','tienda',this.value,'${r.tienda||''}',this.value)">${tiendaOpts}</select></td>
                     <td><input type="text" class="edit-field-input" value="${r.folio || ''}" onchange="requestFieldEdit('${r.id}','folio',this.value,'${(r.folio||'').replace(/'/g,"\\'")}',this.value)"></td>
@@ -1325,62 +1325,8 @@
                     <td>${productoHtml}</td>
                     <td><button class="delete-row" onclick="deleteAdminRecord('${r.id}')">Eliminar</button></td>
                     <td style="white-space:nowrap;">${respuestaHtml}</td>
-                </tr>`);
-
-                mobileCardsHtml.push(`<div class="mobile-card" id="admin-mobile-card-${idx}">
-                    <div class="mobile-card-header">
-                        <div class="mobile-card-number">${idx+1}</div>
-                        <button class="mobile-card-delete" onclick="deleteAdminRecord('${r.id}')">🗑️ Eliminar</button>
-                    </div>
-                    <div class="mobile-row-grid">
-                        <div class="mobile-field">
-                            <span class="mobile-field-label">📅 Fecha</span>
-                            <input type="date" class="mobile-field-input" value="${r.fecha || ''}" onchange="requestFieldEdit('${r.id}','fecha',this.value,'${r.fecha||''}',this.value)">
-                        </div>
-                        <div class="mobile-field">
-                            <span class="mobile-field-label">🏪 Tienda</span>
-                            <select class="mobile-field-select" onchange="requestFieldEdit('${r.id}','tienda',this.value,'${r.tienda||''}',this.value)">${tiendaOpts}</select>
-                        </div>
-                    </div>
-                    <div class="mobile-row-grid">
-                        <div class="mobile-field">
-                            <span class="mobile-field-label">📋 Folio</span>
-                            <input type="text" class="mobile-field-input" value="${r.folio || ''}" onchange="requestFieldEdit('${r.id}','folio',this.value,'${(r.folio||'').replace(/'/g,"\\'")}',this.value)">
-                        </div>
-                        <div class="mobile-field">
-                            <span class="mobile-field-label">💰 Monto</span>
-                            <input type="text" inputmode="decimal" class="mobile-field-input" value="${formatDisplayMonto(r.monto)}" oninput="formatMontoInputGeneric(this)" onchange="requestFieldEdit('${r.id}','monto',this.value,'${formatDisplayMonto(r.monto)}',this.value)">
-                        </div>
-                    </div>
-                    <div class="mobile-field">
-                        <span class="mobile-field-label">📝 Motivo</span>
-                        <select class="mobile-field-select" onchange="requestFieldEdit('${r.id}','motivo',this.value,'${r.motivo||''}',this.value)">${motivoOpts}</select>
-                    </div>
-                    <div class="mobile-field">
-                        <span class="mobile-field-label">📌 Notas</span>
-                        <textarea class="mobile-field-textarea" onchange="requestFieldEdit('${r.id}','notas',this.value,'${(r.notas||'').replace(/'/g,"\\'")}',this.value)">${r.notas || ''}</textarea>
-                    </div>
-
-                    <div class="photo-section-title">📸 Evidencias</div>
-                    <div class="photo-grid">
-                        <div class="mobile-field">
-                            <span class="mobile-field-label">Tickets</span>
-                            <div style="text-align:center;padding:8px 0;">${ticketsHtml}</div>
-                        </div>
-                        <div class="mobile-field">
-                            <span class="mobile-field-label">Producto</span>
-                            <div style="text-align:center;padding:8px 0;">${productoHtml}</div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top:12px;padding-top:12px;border-top:2px solid #eef2f7;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                        ${respuestaHtml}
-                    </div>
-                </div>`);
-            });
-
-            tbody.innerHTML = desktopRowsHtml.join('');
-            if (mobileContainer) mobileContainer.innerHTML = mobileCardsHtml.join('');
+                </tr>`;
+            }).join('');
         }
 
         function formatMontoInputGeneric(inputEl) {
