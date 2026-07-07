@@ -418,10 +418,14 @@
         .response-status { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .response-status.cancelado { background: #ffebee; color: #c62828; }
         .response-status.seguimiento { background: #e3f2fd; color: #1565c0; }
-        .respuesta-option { flex: 1; padding: 18px; border: 2px solid #e8ecf1; border-radius: 10px; background: white; cursor: pointer; text-align: center; font-weight: 700; font-size: 0.9rem; color: #6b7c93; transition: all 0.3s; }
+        .response-status.cobrado { background: #e8f5e9; color: #2e7d32; }
+        .response-status.rechazado { background: #f3e5f5; color: #6a1b9a; }
+        .respuesta-option { flex: 1 1 40%; min-width: 110px; padding: 14px 8px; border: 2px solid #e8ecf1; border-radius: 10px; background: white; cursor: pointer; text-align: center; font-weight: 700; font-size: 0.85rem; color: #6b7c93; transition: all 0.3s; }
         .respuesta-option:hover { border-color: #9fa8da; }
         .respuesta-option.selected.cancelado { border-color: #c62828; background: #ffebee; color: #c62828; }
         .respuesta-option.selected.seguimiento { border-color: #1565c0; background: #e3f2fd; color: #1565c0; }
+        .respuesta-option.selected.cobrado { border-color: #2e7d32; background: #e8f5e9; color: #2e7d32; }
+        .respuesta-option.selected.rechazado { border-color: #6a1b9a; background: #f3e5f5; color: #6a1b9a; }
         .edit-field-input { width: 100%; border: 1px solid #d1d8e0; border-radius: 6px; padding: 8px 10px; font-size: 0.85rem; font-family: inherit; color: #2c3e50; }
         .edit-field-input:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.08); }
         .photo-options { display: flex; gap: 8px; margin-top: 5px; flex-wrap: wrap; justify-content: center; }
@@ -727,15 +731,21 @@
 
     <!-- Respuesta Modal -->
     <div class="preview-modal-overlay" id="respuestaModal" onclick="closeRespuestaModal(event)">
-        <div class="preview-modal-content" onclick="event.stopPropagation()" style="max-width: 480px;">
+        <div class="preview-modal-content" onclick="event.stopPropagation()" style="max-width: 560px;">
             <div class="preview-modal-header" style="background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);">
                 <h2>📨 REGISTRAR RESPUESTA</h2>
                 <p>Selecciona el tipo de respuesta para este ticket</p>
             </div>
             <div class="preview-modal-body">
-                <div style="display:flex;gap:12px;margin-bottom:6px;">
+                <div style="display:flex;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
                     <div class="respuesta-option" id="optCancelado" onclick="selectRespuestaTipo('cancelado')">❌<br>Cancelado</div>
                     <div class="respuesta-option" id="optSeguimiento" onclick="selectRespuestaTipo('seguimiento')">🔄<br>Seguimiento</div>
+                    <div class="respuesta-option" id="optCobrado" onclick="selectRespuestaTipo('cobrado')">💰<br>Cobrado</div>
+                    <div class="respuesta-option" id="optRechazado" onclick="selectRespuestaTipo('rechazado')">🚫<br>Rechazado</div>
+                </div>
+                <div id="motivoRechazoSection" style="display:none;margin-top:10px;">
+                    <div class="photo-section-title">📝 Motivo de Rechazo (obligatorio)</div>
+                    <textarea id="motivoRechazoInput" placeholder="Explica por qué se rechaza este ticket..." style="width:100%;min-height:80px;padding:10px 12px;border:2px solid #e8ecf1;border-radius:8px;font-family:inherit;font-size:0.9rem;resize:vertical;" oninput="updateRespuestaSendButtonState()"></textarea>
                 </div>
             </div>
             <div class="preview-modal-footer">
@@ -1349,7 +1359,7 @@
                 const total = recs.reduce((s,r) => s + (parseFloat(r.monto)||0), 0);
                 const cancelaciones = recs.filter(r => r.motivo !== 'pedido').length;
                 const pedidos = recs.filter(r => r.motivo === 'pedido').length;
-                const pendientes = recs.filter(r => r.respuesta !== 'cancelado').length;
+                const pendientes = recs.filter(r => !['cancelado','cobrado','rechazado'].includes(r.respuesta)).length;
                 const color = tiendaColor(t);
                 const label = t.charAt(0).toUpperCase() + t.slice(1);
                 const rf = tiendaFilters[t] || { from: '', to: '' };
@@ -1432,6 +1442,8 @@
                 let respuestaHtml = '';
                 if (r.respuesta === 'cancelado') respuestaHtml = '<span class="response-status cancelado">❌ Cancelado</span>';
                 else if (r.respuesta === 'seguimiento') respuestaHtml = '<span class="response-status seguimiento">🔄 Seguimiento</span>';
+                else if (r.respuesta === 'cobrado') respuestaHtml = '<span class="response-status cobrado">💰 Cobrado</span>';
+                else if (r.respuesta === 'rechazado') respuestaHtml = `<span class="response-status rechazado" title="${(r.motivoRechazo||'').replace(/"/g,'&quot;')}">🚫 Rechazado</span>`;
                 respuestaHtml += `<button class="response-btn" onclick="openRespuestaModal('${r.id}')">Respuesta</button>`;
 
                 return `<tr>
@@ -1555,6 +1567,10 @@
             respuestaContext = { recordId, tipo: record.respuesta || null };
             document.getElementById('optCancelado').classList.remove('selected', 'cancelado');
             document.getElementById('optSeguimiento').classList.remove('selected', 'seguimiento');
+            document.getElementById('optCobrado').classList.remove('selected', 'cobrado');
+            document.getElementById('optRechazado').classList.remove('selected', 'rechazado');
+            document.getElementById('motivoRechazoInput').value = record.motivoRechazo || '';
+            document.getElementById('motivoRechazoSection').style.display = 'none';
             if (respuestaContext.tipo) selectRespuestaTipo(respuestaContext.tipo);
             updateRespuestaSendButtonState();
             document.getElementById('respuestaModal').classList.add('active');
@@ -1575,13 +1591,41 @@
             document.getElementById('optCancelado').classList.toggle('cancelado', tipo === 'cancelado');
             document.getElementById('optSeguimiento').classList.toggle('selected', tipo === 'seguimiento');
             document.getElementById('optSeguimiento').classList.toggle('seguimiento', tipo === 'seguimiento');
+            document.getElementById('optCobrado').classList.toggle('selected', tipo === 'cobrado');
+            document.getElementById('optCobrado').classList.toggle('cobrado', tipo === 'cobrado');
+            document.getElementById('optRechazado').classList.toggle('selected', tipo === 'rechazado');
+            document.getElementById('optRechazado').classList.toggle('rechazado', tipo === 'rechazado');
+            document.getElementById('motivoRechazoSection').style.display = tipo === 'rechazado' ? 'block' : 'none';
             updateRespuestaSendButtonState();
         }
 
         function updateRespuestaSendButtonState() {
             const btn = document.getElementById('enviarRespuestaBtn');
-            if (!respuestaContext || !respuestaContext.tipo) { btn.disabled = true; return; }
+            if (!respuestaContext || !respuestaContext.tipo) {
+                btn.disabled = true;
+                btn.textContent = '📤 Enviar por WhatsApp';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+                return;
+            }
+            if (respuestaContext.tipo === 'rechazado') {
+                const motivo = document.getElementById('motivoRechazoInput').value.trim();
+                btn.disabled = !motivo;
+                btn.textContent = '📤 Enviar por WhatsApp';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+                return;
+            }
             btn.disabled = false;
+            if (respuestaContext.tipo === 'cobrado') {
+                btn.textContent = '💾 Guardar (sin WhatsApp)';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+            } else {
+                btn.textContent = '📤 Enviar por WhatsApp';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+            }
         }
 
         // Convierte A-Z a Unicode "Sans Bold" para que la respuesta se vea con
@@ -1602,21 +1646,22 @@
             const record = adminRecordsMap[respuestaContext.recordId];
             if (!record) return;
 
+            const esCobrado = respuestaContext.tipo === 'cobrado';
+            const esRechazado = respuestaContext.tipo === 'rechazado';
+            const motivoRechazo = document.getElementById('motivoRechazoInput').value.trim();
+
+            if (esRechazado && !motivoRechazo) {
+                showToast('❌ Falta el motivo de rechazo', 'error');
+                return;
+            }
+
             document.getElementById('loadingOverlay').classList.add('active');
             try {
-                const esCancelado = respuestaContext.tipo === 'cancelado';
-                const tipoLabel = esCancelado ? 'CANCELADO' : 'SEGUIMIENTO';
-                const colorBlock = esCancelado ? '🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥' : '🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦';
-                const icon = esCancelado ? '❌' : '🔄';
-
-                let msg = `*📨 RESPUESTA DE TICKET*\n\n📅 Fecha: ${record.fecha}\n🏪 Tienda: ${record.tienda}\n📋 Folio: ${record.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(record.monto) || '0.00'}\n📝 Motivo: ${record.motivo}`;
-                msg += `\n\n${colorBlock}\n${icon} ${toFancyBold(tipoLabel)} ${icon}\n${colorBlock}`;
-                msg += `\n\n_Enviado desde CANCELACIONES V2.1_`;
-
                 const updateData = {
                     respuesta: respuestaContext.tipo,
                     respuestaAt: new Date().toISOString()
                 };
+                if (esRechazado) updateData.motivoRechazo = motivoRechazo;
 
                 if (firebaseReady) {
                     await fbRefs.updateDoc(fbRefs.doc(db, 'registros', respuestaContext.recordId), updateData);
@@ -1628,6 +1673,29 @@
                     }
                     updateAdmin();
                 }
+
+                if (esCobrado) {
+                    // "Cobrado" solo actualiza el registro (quita la alerta de pendiente en la tarjeta),
+                    // no se manda mensaje de WhatsApp.
+                    showToast('✅ Marcado como Cobrado', 'success');
+                    closeRespuestaModal();
+                    return;
+                }
+
+                const tipoLabels = { cancelado: 'CANCELADO', seguimiento: 'SEGUIMIENTO', rechazado: 'RECHAZADO' };
+                const colorBlocks = { cancelado: '🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥', seguimiento: '🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦', rechazado: '🟪🟪🟪🟪🟪🟪🟪🟪🟪🟪' };
+                const icons = { cancelado: '❌', seguimiento: '🔄', rechazado: '🚫' };
+                const tipoLabel = tipoLabels[respuestaContext.tipo];
+                const colorBlock = colorBlocks[respuestaContext.tipo];
+                const icon = icons[respuestaContext.tipo];
+
+                let msg = `━━━━━━━━━━━━━━━━━━\n📨 ${toFancyBold('RESPUESTA DE TICKET')}\n━━━━━━━━━━━━━━━━━━`;
+                msg += `\n\n📅 Fecha: ${record.fecha}\n🏪 Tienda: ${record.tienda}\n📋 Folio: ${record.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(record.monto) || '0.00'}\n📝 Motivo: ${record.motivo}`;
+                msg += `\n\n${colorBlock}\n${icon} ${toFancyBold(tipoLabel)} ${icon}\n${colorBlock}`;
+                if (esRechazado) {
+                    msg += `\n\n💬 *Motivo del rechazo:*\n${motivoRechazo}`;
+                }
+                msg += `\n\n_Enviado desde CANCELACIONES V2.1_`;
 
                 const encoded = encodeURIComponent(msg);
                 abrirWhatsApp(encoded);
