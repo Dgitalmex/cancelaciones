@@ -396,6 +396,15 @@
         .photo-options button.gallery-btn:hover { background: #1976d2; }
         .photo-options button.remove-btn { background: #c62828; }
         .photo-options button.remove-btn:hover { background: #b71c1c; }
+        .photo-options button:disabled { opacity: 0.45; cursor: not-allowed; }
+        .photo-options button:disabled:hover { transform: none; background: #9e9e9e; }
+        .photo-limit-msg { font-size: 0.68rem; font-weight: 600; margin-top: 6px; }
+        .photo-limit-msg.ok { color: #6b7c93; }
+        .photo-limit-msg.full { color: #c62828; }
+        .producto-thumb-wrap { position: relative; display: inline-block; }
+        .producto-thumb-wrap .remove-thumb { position: absolute; top: -7px; right: -7px; width: 20px; height: 20px; border-radius: 50%; padding: 0; font-size: 0.7rem; line-height: 20px; text-align: center; background: #c62828; color: #fff; border: 2px solid #fff; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+        .producto-thumb-wrap .remove-thumb:hover { background: #b71c1c; }
+        .producto-thumbs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 8px 0 2px; }
         /* ===== Visor público de ticket (link de WhatsApp) ===== */
         #ticketViewer { position: fixed; inset: 0; z-index: 5000; background: #f5f7fa; overflow-y: auto; display: none; }
         #ticketViewer.active { display: block; }
@@ -739,11 +748,60 @@
                 folio: '', 
                 monto: '', 
                 motivo: '', 
-                notas: '', 
+                notas: '',
                 fotoTickets: '',
-                fotoProducto: ''
+                fotosProducto: []
             });
             renderTable();
+        }
+
+        // Máximo de fotos permitidas para el Producto
+        const MAX_PRODUCTO_FOTOS = 5;
+
+        // Devuelve siempre un array de fotos de producto (compatible con registros viejos que usaban fotoProducto)
+        function getFotosProducto(row) {
+            if (Array.isArray(row.fotosProducto)) return row.fotosProducto;
+            if (row.fotoProducto) return [row.fotoProducto];
+            return [];
+        }
+
+        // Lee un File y lo devuelve como dataURL (promesa)
+        function readFileAsDataURL(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => resolve(ev.target.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Construye el bloque HTML de fotos de Producto (usado en escritorio y móvil)
+        function renderProductoBox(idx, row, compact) {
+            const fotos = getFotosProducto(row);
+            const count = fotos.length;
+            const canAdd = count < MAX_PRODUCTO_FOTOS;
+            const hasClass = count > 0 ? 'has-photo' : '';
+            const camLabel = compact ? '📷' : '📷 Cámara';
+            const galLabel = compact ? '🖼️' : '🖼️ Galería';
+            let thumbs = '';
+            fotos.forEach((src, pi) => {
+                thumbs += `<span class="producto-thumb-wrap">
+                    <img src="${src}" class="photo-preview-small" style="margin-top:0;" onclick="event.stopPropagation(); openModal('${src}')">
+                    <button class="remove-thumb" onclick="event.stopPropagation(); removeProductoPhoto(${idx}, ${pi})">✕</button>
+                </span>`;
+            });
+            const limitMsg = canAdd
+                ? `<div class="photo-limit-msg ok">📸 Puedes agregar hasta ${MAX_PRODUCTO_FOTOS} fotos (${count}/${MAX_PRODUCTO_FOTOS})</div>`
+                : `<div class="photo-limit-msg full">✅ Máximo de ${MAX_PRODUCTO_FOTOS} fotos alcanzado (${count}/${MAX_PRODUCTO_FOTOS})</div>`;
+            return `<div class="photo-upload-box ${hasClass}" style="padding:10px;min-height:${compact ? 100 : 80}px;">
+                    ${count > 0
+                        ? `<div class="producto-thumbs">${thumbs}</div>`
+                        : '<span class="photo-icon">📷</span><span class="photo-label">Producto</span>'}
+                    <div class="photo-options">
+                        <button class="camera-btn" ${canAdd ? '' : 'disabled'} onclick="event.stopPropagation(); takePhoto(${idx}, 'producto')">${camLabel}</button>
+                        <button class="gallery-btn" ${canAdd ? '' : 'disabled'} onclick="event.stopPropagation(); uploadPhoto(${idx}, 'producto')">${galLabel}</button>
+                    </div>
+                    ${limitMsg}
+                </div>`;
         }
 
         function formatDisplayMonto(val) {
@@ -780,7 +838,6 @@
                 MOTIVOS.forEach(m => { motivoOpts += `<option value="${m}" ${row.motivo===m?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`; });
 
                 const ticketsHasPhoto = row.fotoTickets ? 'has-photo' : '';
-                const productHasPhoto = row.fotoProducto ? 'has-photo' : '';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td>${idx+1}</td>
@@ -800,16 +857,7 @@
                             </div>
                         </div>
                     </td>
-                    <td>
-                        <div class="photo-upload-box ${productHasPhoto}" style="padding:10px;min-height:80px;">
-                            ${row.fotoProducto ? `<img src="${row.fotoProducto}" class="photo-preview-small">` : '<span class="photo-icon">📷</span><span class="photo-label">Producto</span>'}
-                            <div class="photo-options">
-                                <button class="camera-btn" onclick="event.stopPropagation(); takePhoto(${idx}, 'producto')">📷 Cámara</button>
-                                <button class="gallery-btn" onclick="event.stopPropagation(); uploadPhoto(${idx}, 'producto')">🖼️ Galería</button>
-                                ${row.fotoProducto ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'producto')">✕</button>` : ''}
-                            </div>
-                        </div>
-                    </td>
+                    <td>${renderProductoBox(idx, row, false)}</td>
                 </tr>`;
                 tbody.appendChild(tr);
             });
@@ -824,7 +872,6 @@
                 MOTIVOS.forEach(m => { motivoOpts += `<option value="${m}" ${row.motivo===m?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`; });
 
                 const ticketsHasPhoto = row.fotoTickets ? 'has-photo' : '';
-                const productHasPhoto = row.fotoProducto ? 'has-photo' : '';
 
                 const card = document.createElement('div');
                 card.className = 'mobile-card';
@@ -872,14 +919,7 @@
                                 ${row.fotoTickets ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'tickets')">✕</button>` : ''}
                             </div>
                         </div>
-                        <div class="photo-upload-box ${productHasPhoto}" style="padding:10px;min-height:100px;">
-                            ${row.fotoProducto ? `<img src="${row.fotoProducto}" class="photo-preview-small">` : '<span class="photo-icon">📷</span><span class="photo-label">Producto</span>'}
-                            <div class="photo-options">
-                                <button class="camera-btn" onclick="event.stopPropagation(); takePhoto(${idx}, 'producto')">📷</button>
-                                <button class="gallery-btn" onclick="event.stopPropagation(); uploadPhoto(${idx}, 'producto')">🖼️</button>
-                                ${row.fotoProducto ? `<button class="remove-btn" onclick="event.stopPropagation(); removePhoto(${idx}, 'producto')">✕</button>` : ''}
-                            </div>
-                        </div>
+                        ${renderProductoBox(idx, row, true)}
                     </div>
                 `;
                 mobileContainer.appendChild(card);
@@ -888,54 +928,101 @@
 
         function updateRow(idx, field, value) { currentRows[idx][field] = value; }
 
-        // Función para tomar foto con cámara
+        // Función para tomar foto con cámara. Para Producto se acumulan hasta MAX_PRODUCTO_FOTOS.
         function takePhoto(idx, type) {
+            if (type === 'producto') {
+                if (!Array.isArray(currentRows[idx].fotosProducto)) currentRows[idx].fotosProducto = getFotosProducto(currentRows[idx]);
+                if (currentRows[idx].fotosProducto.length >= MAX_PRODUCTO_FOTOS) {
+                    showToast(`⚠️ Solo puedes agregar un máximo de ${MAX_PRODUCTO_FOTOS} fotos de producto`, 'error');
+                    return;
+                }
+            }
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
             input.capture = 'environment';
             input.onchange = async (e) => {
-                if (e.target.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        const compressed = await compressImage(ev.target.result, 800, 0.6);
-                        currentRows[idx][type === 'tickets' ? 'fotoTickets' : 'fotoProducto'] = compressed;
-                        renderTable();
-                        showToast(`✅ Foto de ${type === 'tickets' ? 'tickets' : 'producto'} tomada con cámara`, 'success');
-                    };
-                    reader.readAsDataURL(e.target.files[0]);
+                if (!e.target.files[0]) return;
+                const dataUrl = await readFileAsDataURL(e.target.files[0]);
+                const compressed = await compressImage(dataUrl, 800, 0.6);
+                if (type === 'producto') {
+                    if (!Array.isArray(currentRows[idx].fotosProducto)) currentRows[idx].fotosProducto = getFotosProducto(currentRows[idx]);
+                    if (currentRows[idx].fotosProducto.length >= MAX_PRODUCTO_FOTOS) {
+                        showToast(`⚠️ Solo puedes agregar un máximo de ${MAX_PRODUCTO_FOTOS} fotos de producto`, 'error');
+                        return;
+                    }
+                    currentRows[idx].fotosProducto.push(compressed);
+                } else {
+                    currentRows[idx].fotoTickets = compressed;
                 }
+                renderTable();
+                showToast(`✅ Foto de ${type === 'tickets' ? 'tickets' : 'producto'} tomada con cámara`, 'success');
             };
             input.click();
         }
 
-        // Función para subir imagen desde galería
+        // Función para subir imagen(es) desde galería. Producto permite selección múltiple hasta el máximo.
         function uploadPhoto(idx, type) {
+            if (type === 'producto') {
+                if (!Array.isArray(currentRows[idx].fotosProducto)) currentRows[idx].fotosProducto = getFotosProducto(currentRows[idx]);
+                if (currentRows[idx].fotosProducto.length >= MAX_PRODUCTO_FOTOS) {
+                    showToast(`⚠️ Solo puedes agregar un máximo de ${MAX_PRODUCTO_FOTOS} fotos de producto`, 'error');
+                    return;
+                }
+            }
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
+            if (type === 'producto') input.multiple = true;
             input.onchange = async (e) => {
-                if (e.target.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        const compressed = await compressImage(ev.target.result, 800, 0.6);
-                        currentRows[idx][type === 'tickets' ? 'fotoTickets' : 'fotoProducto'] = compressed;
-                        renderTable();
-                        showToast(`✅ Foto de ${type === 'tickets' ? 'tickets' : 'producto'} subida desde galería`, 'success');
-                    };
-                    reader.readAsDataURL(e.target.files[0]);
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                if (type === 'producto') {
+                    if (!Array.isArray(currentRows[idx].fotosProducto)) currentRows[idx].fotosProducto = getFotosProducto(currentRows[idx]);
+                    let added = 0, limitReached = false;
+                    for (const file of files) {
+                        if (currentRows[idx].fotosProducto.length >= MAX_PRODUCTO_FOTOS) { limitReached = true; break; }
+                        const dataUrl = await readFileAsDataURL(file);
+                        const compressed = await compressImage(dataUrl, 800, 0.6);
+                        currentRows[idx].fotosProducto.push(compressed);
+                        added++;
+                    }
+                    renderTable();
+                    if (limitReached) {
+                        showToast(`⚠️ Se agregaron ${added} foto(s). El máximo es ${MAX_PRODUCTO_FOTOS} fotos de producto.`, 'error');
+                    } else {
+                        showToast(`✅ ${added} foto(s) de producto subida(s) desde galería`, 'success');
+                    }
+                } else {
+                    const dataUrl = await readFileAsDataURL(files[0]);
+                    const compressed = await compressImage(dataUrl, 800, 0.6);
+                    currentRows[idx].fotoTickets = compressed;
+                    renderTable();
+                    showToast('✅ Foto de tickets subida desde galería', 'success');
                 }
             };
             input.click();
         }
 
-        // Función para eliminar foto
+        // Eliminar foto de tickets (o vaciar todas las de producto)
         function removePhoto(idx, type) {
             if (confirm('¿Eliminar esta foto?')) {
-                currentRows[idx][type === 'tickets' ? 'fotoTickets' : 'fotoProducto'] = '';
+                if (type === 'producto') {
+                    currentRows[idx].fotosProducto = [];
+                } else {
+                    currentRows[idx].fotoTickets = '';
+                }
                 renderTable();
                 showToast('Foto eliminada', 'success');
             }
+        }
+
+        // Eliminar una foto concreta del Producto por su índice
+        function removeProductoPhoto(idx, photoIndex) {
+            if (!Array.isArray(currentRows[idx].fotosProducto)) currentRows[idx].fotosProducto = getFotosProducto(currentRows[idx]);
+            currentRows[idx].fotosProducto.splice(photoIndex, 1);
+            renderTable();
+            showToast('Foto eliminada', 'success');
         }
 
         function showPreviewModal() {
@@ -948,11 +1035,11 @@
             const images = [];
             currentRows.forEach((r, i) => {
                 if(r.fotoTickets) images.push({src: r.fotoTickets, label: `Tickets ${i+1}`});
-                if(r.fotoProducto) images.push({src: r.fotoProducto, label: `Producto ${i+1}`});
+                getFotosProducto(r).forEach((src, pi) => images.push({src, label: `Producto ${i+1}.${pi+1}`}));
             });
             if(images.length > 0) { html += '<div class="preview-images">'; images.forEach(img => { html += `<img src="${img.src}" onclick="openModal('${img.src}')" title="${img.label} - Clic para ver completa">`; }); html += '</div>'; }
             currentRows.forEach((row, i) => {
-                html += `<div class="preview-ticket-card"><h4>📄 Ticket ${i+1}</h4><div class="preview-field"><span class="label">📅 Fecha:</span><span class="value">${row.fecha}</span></div><div class="preview-field"><span class="label">🏪 Tienda:</span><span class="value">${row.tienda.charAt(0).toUpperCase()+row.tienda.slice(1)}</span></div><div class="preview-field"><span class="label">📋 Folio:</span><span class="value">${row.folio || 'N/A'}</span></div><div class="preview-field"><span class="label">💰 Monto:</span><span class="value">$${formatDisplayMonto(row.monto) || '0.00'}</span></div><div class="preview-field"><span class="label">📝 Motivo:</span><span class="value">${row.motivo.charAt(0).toUpperCase()+row.motivo.slice(1)}</span></div>${row.fotoTickets ? `<div class="preview-field"><span class="label">📸 Tickets:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${row.fotoProducto ? `<div class="preview-field"><span class="label">📸 Producto:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${row.notas ? `<div class="preview-field"><span class="label">📌 Notas:</span><span class="value">${row.notas}</span></div>` : ''}</div>`;
+                html += `<div class="preview-ticket-card"><h4>📄 Ticket ${i+1}</h4><div class="preview-field"><span class="label">📅 Fecha:</span><span class="value">${row.fecha}</span></div><div class="preview-field"><span class="label">🏪 Tienda:</span><span class="value">${row.tienda.charAt(0).toUpperCase()+row.tienda.slice(1)}</span></div><div class="preview-field"><span class="label">📋 Folio:</span><span class="value">${row.folio || 'N/A'}</span></div><div class="preview-field"><span class="label">💰 Monto:</span><span class="value">$${formatDisplayMonto(row.monto) || '0.00'}</span></div><div class="preview-field"><span class="label">📝 Motivo:</span><span class="value">${row.motivo.charAt(0).toUpperCase()+row.motivo.slice(1)}</span></div>${row.fotoTickets ? `<div class="preview-field"><span class="label">📸 Tickets:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${getFotosProducto(row).length ? `<div class="preview-field"><span class="label">📸 Producto:</span><span class="value" style="color:#2e7d32">✅ ${getFotosProducto(row).length} foto(s)</span></div>` : ''}${row.notas ? `<div class="preview-field"><span class="label">📌 Notas:</span><span class="value">${row.notas}</span></div>` : ''}</div>`;
                 total += parseFloat(row.monto) || 0;
             });
             html += `<div class="preview-total"><p>Monto Total a Enviar</p><h3>$${total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</h3></div>`;
@@ -972,7 +1059,8 @@
                 currentRows.forEach((row, i) => {
                     msg += `*Ticket ${i+1}*\n📅 Fecha: ${row.fecha}\n🏪 Tienda: ${row.tienda}\n📋 Folio: ${row.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(row.monto) || '0.00'}\n📝 Motivo: ${row.motivo}\n`;
                     if (row.fotoTickets) msg += `📸 Tickets: Adjunto\n`;
-                    if (row.fotoProducto) msg += `📸 Producto: Adjunto\n`;
+                    const fpCount = getFotosProducto(row).length;
+                    if (fpCount) msg += `📸 Producto: ${fpCount} foto(s) adjunta(s)\n`;
                     if (row.notas) msg += `📌 Notas: ${row.notas}\n`;
                     msg += `-------------------\n`;
                     total += parseFloat(row.monto) || 0;
@@ -984,8 +1072,12 @@
                     if (row.fotoTickets && row.fotoTickets.length > 900000) {
                         row.fotoTickets = await compressImage(row.fotoTickets, 800, 0.5);
                     }
-                    if (row.fotoProducto && row.fotoProducto.length > 900000) {
-                        row.fotoProducto = await compressImage(row.fotoProducto, 800, 0.5);
+                    if (Array.isArray(row.fotosProducto)) {
+                        for (let pi = 0; pi < row.fotosProducto.length; pi++) {
+                            if (row.fotosProducto[pi] && row.fotosProducto[pi].length > 900000) {
+                                row.fotosProducto[pi] = await compressImage(row.fotosProducto[pi], 800, 0.5);
+                            }
+                        }
                     }
                 }
 
@@ -1090,7 +1182,8 @@
                 adminRecordsMap[r.id] = r;
                 const ticketsImg = r.fotoTickets || r.imagen;
                 const ticketsHtml = ticketsImg ? `<img src="${ticketsImg}" class="ticket-thumb" onclick="openModal('${ticketsImg}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
-                const productoHtml = r.fotoProducto ? `<img src="${r.fotoProducto}" class="ticket-thumb" onclick="openModal('${r.fotoProducto}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
+                const productoFotos = getFotosProducto(r);
+                const productoHtml = productoFotos.length ? productoFotos.map(src => `<img src="${src}" class="ticket-thumb" style="margin:2px;" onclick="openModal('${src}')">`).join('') : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
 
                 let tiendaOpts = '<option value="">Seleccionar...</option>';
                 TIENDAS.forEach(t => { tiendaOpts += `<option value="${t}" ${r.tienda===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`; });
