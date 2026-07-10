@@ -6,7 +6,7 @@
     <title>CANCELACIONES · Captura</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCGoj6svi5Na7xoZU9asJZ0xf4qBd37ys8",
@@ -28,7 +28,7 @@
         });
 
         window.firebaseDB = db;
-        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy };
+        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy };
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -443,6 +443,28 @@
 <base target="_blank">
 </head>
 <body>
+    <style>
+        #sistemaApagadoOverlay { position: fixed; inset: 0; z-index: 999999; display: none; align-items: center; justify-content: center; background: rgba(20,0,0,0.94); backdrop-filter: blur(5px); padding: 24px; }
+        #sistemaApagadoOverlay .apg-box { text-align: center; color: #fff; max-width: 500px; width: 100%; animation: apgPop .3s ease; }
+        #sistemaApagadoOverlay .apg-icon { font-size: 5.5rem; line-height: 1; margin-bottom: 10px; animation: apgPulse 1.4s infinite; }
+        #sistemaApagadoOverlay .apg-title { font-size: 2.8rem; font-weight: 800; letter-spacing: 4px; color: #ff5252; text-shadow: 0 2px 22px rgba(255,82,82,0.65); margin-bottom: 10px; }
+        #sistemaApagadoOverlay .apg-store { font-size: 1.5rem; font-weight: 700; margin-bottom: 16px; }
+        #sistemaApagadoOverlay .apg-msg { font-size: 1.02rem; opacity: 0.92; line-height: 1.55; margin-bottom: 28px; }
+        #sistemaApagadoOverlay .apg-btn { background: #fff; color: #c62828; border: none; border-radius: 12px; padding: 15px 28px; font-size: 1.02rem; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        #sistemaApagadoOverlay .apg-btn:hover { filter: brightness(0.95); }
+        @keyframes apgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+        @keyframes apgPop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+    <div id="sistemaApagadoOverlay">
+        <div class="apg-box">
+            <div class="apg-icon">🚫</div>
+            <div class="apg-title">SISTEMA APAGADO</div>
+            <div class="apg-store" id="apagadoStoreName"></div>
+            <div class="apg-msg">La captura de tickets para esta tienda está deshabilitada temporalmente por el administrador. Podrás capturar de nuevo cuando la tienda sea reactivada.</div>
+            <button class="apg-btn" onclick="cerrarSistemaApagado()">CONTACTE A SOPORTE</button>
+        </div>
+    </div>
+
     <div id="ticketViewer">
         <div class="tv-header">
             <div class="tv-logo">📋</div>
@@ -547,6 +569,58 @@
         let fbRefs = null;
         let allRecords = [];
 
+        // ===== Estado de apagado por tienda (control remoto desde Administrador) =====
+        let tiendasApagadas = {};   // { valle: true, ... }
+        let filaApagadaId = null;   // id de la fila que disparó el aviso
+
+        function tiendaEstaApagada(t) {
+            return !!(t && tiendasApagadas[t] === true);
+        }
+
+        function escucharEstadoTiendas() {
+            if (!firebaseReady || !db) return;
+            try {
+                const ref = fbRefs.doc(db, 'config', 'sistema');
+                fbRefs.onSnapshot(ref, (snap) => {
+                    const data = snap.exists() ? snap.data() : {};
+                    tiendasApagadas = (data && data.tiendasApagadas) ? data.tiendasApagadas : {};
+                    verificarFilasApagadas();
+                }, (err) => console.error('Estado de tiendas:', err));
+            } catch (e) { console.error(e); }
+        }
+
+        function mostrarSistemaApagado(tienda, rowId) {
+            filaApagadaId = (rowId != null) ? rowId : null;
+            const nombre = tienda ? (tienda.charAt(0).toUpperCase() + tienda.slice(1)) : '';
+            const el = document.getElementById('apagadoStoreName');
+            if (el) el.textContent = '🏪 ' + nombre;
+            const ov = document.getElementById('sistemaApagadoOverlay');
+            if (ov) { ov.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+        }
+
+        function cerrarSistemaApagado() {
+            // Quita la tienda apagada de la fila para que no se pueda capturar con ella
+            if (filaApagadaId != null) {
+                const row = currentRows.find(r => r.id == filaApagadaId);
+                if (row && tiendaEstaApagada(row.tienda)) { row.tienda = ''; renderTable(); }
+            }
+            filaApagadaId = null;
+            const ov = document.getElementById('sistemaApagadoOverlay');
+            if (ov) ov.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        // Si el administrador apaga una tienda que ya estaba seleccionada, muestra el aviso al instante
+        function verificarFilasApagadas() {
+            const fila = currentRows.find(r => tiendaEstaApagada(r.tienda));
+            if (fila) {
+                mostrarSistemaApagado(fila.tienda, fila.id);
+            } else {
+                const ov = document.getElementById('sistemaApagadoOverlay');
+                if (ov && ov.style.display !== 'none') { ov.style.display = 'none'; document.body.style.overflow = ''; filaApagadaId = null; }
+            }
+        }
+
         function waitForFirebase() {
             return new Promise((resolve) => {
                 const check = setInterval(() => {
@@ -597,6 +671,7 @@
             setConnectionStatus('checking');
             await waitForFirebase();
             if (firebaseReady) {
+                escucharEstadoTiendas();
                 showToast('✅ Conectado a Firebase', 'success');
                 setConnectionStatus('online');
             } else {
@@ -926,7 +1001,10 @@
             });
         }
 
-        function updateRow(idx, field, value) { currentRows[idx][field] = value; }
+        function updateRow(idx, field, value) {
+            currentRows[idx][field] = value;
+            if (field === 'tienda' && tiendaEstaApagada(value)) mostrarSistemaApagado(value, currentRows[idx].id);
+        }
 
         // Función para tomar foto con cámara. Para Producto se acumulan hasta MAX_PRODUCTO_FOTOS.
         function takePhoto(idx, type) {
@@ -1026,6 +1104,7 @@
         }
 
         function showPreviewModal() {
+            for (let row of currentRows) { if (tiendaEstaApagada(row.tienda)) { mostrarSistemaApagado(row.tienda, row.id); return; } }
             for(let row of currentRows) { if(!row.tienda) { showToast('La tienda es obligatoria en todas las filas', 'error'); return; } if(!row.motivo) { showToast('El motivo es obligatorio en todas las filas', 'error'); return; } }
 
             const existingAlert = document.getElementById('photoAlert');
@@ -1051,6 +1130,7 @@
         function closePreviewModal(e) { if(e && e.target !== document.getElementById('previewModal')) return; document.getElementById('previewModal').classList.remove('active'); document.body.style.overflow = ''; }
 
         async function confirmSendWhatsApp() {
+            for (let row of currentRows) { if (tiendaEstaApagada(row.tienda)) { mostrarSistemaApagado(row.tienda, row.id); return; } }
             closePreviewModal();
             document.getElementById('loadingOverlay').classList.add('active');
 
