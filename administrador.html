@@ -444,6 +444,11 @@
         .photo-options button.gallery-btn:hover { background: #1976d2; }
         .photo-options button.remove-btn { background: #c62828; }
         .photo-options button.remove-btn:hover { background: #b71c1c; }
+        .photo-options button.paste-btn { background: #6a1b9a; }
+        .photo-options button.paste-btn:hover { background: #4a148c; }
+        .evidencia-box { border: 2px dashed #ce93d8; border-radius: 10px; padding: 12px; background: #faf5fc; margin-top: 4px; }
+        .evidencia-box .producto-thumbs { margin: 0 0 8px; justify-content: flex-start; }
+        .evidencia-box .photo-options { justify-content: flex-start; }
         .photo-options button:disabled { opacity: 0.45; cursor: not-allowed; }
         .photo-options button:disabled:hover { transform: none; background: #9e9e9e; }
         .photo-limit-msg { font-size: 0.68rem; font-weight: 600; margin-top: 6px; }
@@ -785,6 +790,16 @@
                 <div id="motivoRechazoSection" style="display:none;margin-top:10px;">
                     <div class="photo-section-title">📝 Motivo de Rechazo (obligatorio)</div>
                     <textarea id="motivoRechazoInput" placeholder="Explica por qué se rechaza este ticket..." style="width:100%;min-height:80px;padding:10px 12px;border:2px solid #e8ecf1;border-radius:8px;font-family:inherit;font-size:0.9rem;resize:vertical;" oninput="updateRespuestaSendButtonState()"></textarea>
+                    <div class="photo-section-title">📎 Evidencia (opcional)</div>
+                    <div class="evidencia-box" id="evidenciaBox">
+                        <div class="producto-thumbs" id="evidenciaThumbs"></div>
+                        <div class="photo-options">
+                            <button type="button" class="camera-btn" onclick="evidenciaTakePhoto()">📷 Cámara</button>
+                            <button type="button" class="gallery-btn" onclick="evidenciaUploadPhoto()">🖼️ Subir</button>
+                            <button type="button" class="paste-btn" onclick="evidenciaPastePhoto()">📋 Pegar</button>
+                        </div>
+                        <div class="photo-limit-msg ok" id="evidenciaLimitMsg">📸 Sube, toma o pega (Ctrl+V) fotos como evidencia</div>
+                    </div>
                 </div>
             </div>
             <div class="preview-modal-footer">
@@ -1776,13 +1791,14 @@
         function openRespuestaModal(recordId) {
             const record = adminRecordsMap[recordId];
             if (!record) return;
-            respuestaContext = { recordId, tipo: record.respuesta || null };
+            respuestaContext = { recordId, tipo: record.respuesta || null, evidencias: Array.isArray(record.evidenciasRechazo) ? record.evidenciasRechazo.slice() : [] };
             document.getElementById('optCancelado').classList.remove('selected', 'cancelado');
             document.getElementById('optSeguimiento').classList.remove('selected', 'seguimiento');
             document.getElementById('optCobrado').classList.remove('selected', 'cobrado');
             document.getElementById('optRechazado').classList.remove('selected', 'rechazado');
             document.getElementById('motivoRechazoInput').value = record.motivoRechazo || '';
             document.getElementById('motivoRechazoSection').style.display = 'none';
+            renderEvidencias();
             if (respuestaContext.tipo) selectRespuestaTipo(respuestaContext.tipo);
             updateRespuestaSendButtonState();
             document.getElementById('respuestaModal').classList.add('active');
@@ -1796,6 +1812,128 @@
             respuestaContext = null;
         }
 
+        // ---- Evidencia de Rechazo (subir / tomar / pegar fotos) ----
+        const MAX_EVIDENCIA_FOTOS = 4;
+
+        function renderEvidencias() {
+            const cont = document.getElementById('evidenciaThumbs');
+            if (!cont) return;
+            const fotos = (respuestaContext && Array.isArray(respuestaContext.evidencias)) ? respuestaContext.evidencias : [];
+            cont.innerHTML = fotos.map((src, i) => `
+                <span class="producto-thumb-wrap">
+                    <img src="${src}" class="photo-preview-small" style="margin-top:0;" onclick="event.stopPropagation(); openModal('${src}')">
+                    <button type="button" class="remove-thumb" onclick="event.stopPropagation(); removeEvidencia(${i})">✕</button>
+                </span>`).join('');
+            const canAdd = fotos.length < MAX_EVIDENCIA_FOTOS;
+            const msg = document.getElementById('evidenciaLimitMsg');
+            if (msg) {
+                msg.className = 'photo-limit-msg ' + (canAdd ? 'ok' : 'full');
+                msg.textContent = canAdd
+                    ? `📸 ${fotos.length}/${MAX_EVIDENCIA_FOTOS} — sube, toma o pega (Ctrl+V) fotos como evidencia`
+                    : `✅ Máximo de ${MAX_EVIDENCIA_FOTOS} fotos alcanzado (${fotos.length}/${MAX_EVIDENCIA_FOTOS})`;
+            }
+            document.querySelectorAll('#evidenciaBox .photo-options button').forEach(b => { b.disabled = !canAdd; });
+        }
+
+        async function addEvidenciaFromDataUrl(dataUrl) {
+            if (!respuestaContext) return false;
+            if (!Array.isArray(respuestaContext.evidencias)) respuestaContext.evidencias = [];
+            if (respuestaContext.evidencias.length >= MAX_EVIDENCIA_FOTOS) {
+                showToast(`⚠️ Solo puedes agregar un máximo de ${MAX_EVIDENCIA_FOTOS} fotos de evidencia`, 'error');
+                return false;
+            }
+            const compressed = await compressImage(dataUrl, 800, 0.55);
+            respuestaContext.evidencias.push(compressed);
+            renderEvidencias();
+            return true;
+        }
+
+        function evidenciaTakePhoto() {
+            if (!respuestaContext) return;
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = async (e) => {
+                if (!e.target.files[0]) return;
+                const dataUrl = await readFileAsDataURL(e.target.files[0]);
+                if (await addEvidenciaFromDataUrl(dataUrl)) showToast('✅ Evidencia tomada con cámara', 'success');
+            };
+            input.click();
+        }
+
+        function evidenciaUploadPhoto() {
+            if (!respuestaContext) return;
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.multiple = true;
+            input.onchange = async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                let added = 0, limitReached = false;
+                for (const file of files) {
+                    if (!Array.isArray(respuestaContext.evidencias)) respuestaContext.evidencias = [];
+                    if (respuestaContext.evidencias.length >= MAX_EVIDENCIA_FOTOS) { limitReached = true; break; }
+                    const dataUrl = await readFileAsDataURL(file);
+                    if (await addEvidenciaFromDataUrl(dataUrl)) added++;
+                }
+                if (limitReached) showToast(`⚠️ Se agregaron ${added} foto(s). El máximo es ${MAX_EVIDENCIA_FOTOS}.`, 'error');
+                else if (added) showToast(`✅ ${added} foto(s) de evidencia subida(s)`, 'success');
+            };
+            input.click();
+        }
+
+        async function evidenciaPastePhoto() {
+            if (!respuestaContext) return;
+            if (!navigator.clipboard || !navigator.clipboard.read) {
+                showToast('📋 Copia una imagen y usa Ctrl+V para pegarla aquí', 'error');
+                return;
+            }
+            try {
+                const items = await navigator.clipboard.read();
+                let added = 0;
+                for (const item of items) {
+                    const imgType = item.types.find(t => t.startsWith('image/'));
+                    if (imgType) {
+                        const blob = await item.getType(imgType);
+                        const dataUrl = await readFileAsDataURL(blob);
+                        if (await addEvidenciaFromDataUrl(dataUrl)) added++;
+                    }
+                }
+                if (added) showToast('✅ Evidencia pegada desde el portapapeles', 'success');
+                else showToast('📋 No se encontró ninguna imagen en el portapapeles', 'error');
+            } catch (err) {
+                showToast('📋 Copia una imagen y usa Ctrl+V para pegarla aquí', 'error');
+            }
+        }
+
+        function removeEvidencia(i) {
+            if (!respuestaContext || !Array.isArray(respuestaContext.evidencias)) return;
+            respuestaContext.evidencias.splice(i, 1);
+            renderEvidencias();
+        }
+
+        // Pegar con Ctrl+V mientras el modal de respuesta (Rechazado) está abierto
+        document.addEventListener('paste', async (e) => {
+            const modal = document.getElementById('respuestaModal');
+            if (!modal || !modal.classList.contains('active')) return;
+            if (!respuestaContext || respuestaContext.tipo !== 'rechazado') return;
+            const items = (e.clipboardData && e.clipboardData.items) ? Array.from(e.clipboardData.items) : [];
+            let added = 0;
+            for (const it of items) {
+                if (it.type && it.type.startsWith('image/')) {
+                    const file = it.getAsFile();
+                    if (file) {
+                        e.preventDefault();
+                        const dataUrl = await readFileAsDataURL(file);
+                        if (await addEvidenciaFromDataUrl(dataUrl)) added++;
+                    }
+                }
+            }
+            if (added) showToast('✅ Evidencia pegada (Ctrl+V)', 'success');
+        });
+
         function selectRespuestaTipo(tipo) {
             if (!respuestaContext) return;
             respuestaContext.tipo = tipo;
@@ -1808,6 +1946,7 @@
             document.getElementById('optRechazado').classList.toggle('selected', tipo === 'rechazado');
             document.getElementById('optRechazado').classList.toggle('rechazado', tipo === 'rechazado');
             document.getElementById('motivoRechazoSection').style.display = tipo === 'rechazado' ? 'block' : 'none';
+            if (tipo === 'rechazado') renderEvidencias();
             updateRespuestaSendButtonState();
         }
 
@@ -1869,11 +2008,15 @@
 
             document.getElementById('loadingOverlay').classList.add('active');
             try {
+                const evidencias = (respuestaContext.evidencias && Array.isArray(respuestaContext.evidencias)) ? respuestaContext.evidencias : [];
                 const updateData = {
                     respuesta: respuestaContext.tipo,
                     respuestaAt: new Date().toISOString()
                 };
-                if (esRechazado) updateData.motivoRechazo = motivoRechazo;
+                if (esRechazado) {
+                    updateData.motivoRechazo = motivoRechazo;
+                    updateData.evidenciasRechazo = evidencias;
+                }
 
                 if (firebaseReady) {
                     await fbRefs.updateDoc(fbRefs.doc(db, 'registros', respuestaContext.recordId), updateData);
@@ -1906,6 +2049,9 @@
                 msg += `\n\n${colorBlock}\n${icon} ${toFancyBold(tipoLabel)} ${icon}\n${colorBlock}`;
                 if (esRechazado) {
                     msg += `\n\n💬 *Motivo del rechazo:*\n${motivoRechazo}`;
+                    if (evidencias.length) {
+                        msg += `\n📎 Evidencia: ${evidencias.length} foto(s) adjunta(s) en el sistema`;
+                    }
                 }
                 msg += `\n\n_Enviado desde CANCELACIONES V2.1_`;
 
