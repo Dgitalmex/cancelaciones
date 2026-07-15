@@ -623,11 +623,28 @@
                         </div>
                     </div>
                     <div class="tienda-grid" id="tiendaCardsGrid"></div>
+
+                    <!-- ===== INFORME GENERAL: comparativo de todas las tiendas ===== -->
+                    <div class="card" id="informeGeneralCard" style="margin-top:25px;">
+                        <div class="card-header">
+                            <div class="card-icon">📈</div>
+                            <h3>Informe General</h3>
+                        </div>
+                        <div class="section-desc" style="margin-left:0;margin-top:-8px;margin-bottom:18px;">Comparativo de todas las tiendas según el período seleccionado (Hoy / Semana / Mes)</div>
+
+                        <div class="stats-grid" id="informeStats"></div>
+
+                        <div class="charts-grid" style="margin-top:10px;">
+                            <div class="chart-card"><h3>Cancelados (Cantidad) por Tienda</h3><div class="chart-container"><canvas id="igChartCancelCant"></canvas></div></div>
+                            <div class="chart-card"><h3>Monto Cancelado por Tienda</h3><div class="chart-container"><canvas id="igChartCancelMonto"></canvas></div></div>
+                            <div class="chart-card"><h3>Motivos de Cancelación (Todas las Tiendas)</h3><div class="chart-container"><canvas id="igChartMotivos"></canvas></div></div>
+                            <div class="chart-card"><h3>Pedidos por Tienda (Monto y Cantidad)</h3><div class="chart-container"><canvas id="igChartPedidos"></canvas></div></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Vista de detalle de una tienda -->
                 <div id="tiendaDetailView" style="display:none;">
-                    <button class="btn btn-primary tienda-back-btn" onclick="closeTiendaDetail()">← Todas las tiendas</button>
                     <div class="tienda-detail-title" id="tiendaDetailTitle"></div>
 
                     <div class="stats-grid" id="statsGrid"></div>
@@ -647,9 +664,10 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header" style="flex-wrap:wrap;">
                             <div class="card-icon">📋</div>
                             <h3>Registros Enviados</h3>
+                            <button class="btn btn-primary tienda-back-btn" onclick="closeTiendaDetail()" style="margin-left:auto;margin-bottom:0;width:auto;">← Todas las tiendas</button>
                         </div>
                         <div class="table-container">
                             <table id="adminTable">
@@ -1534,6 +1552,9 @@
             // Tarjetas por tienda: cada una usa su propio filtro de fecha si lo
             // tiene definido; si no, cae al período global (Hoy/Semana/Mes).
             renderTiendaCards();
+
+            // Informe General: comparativo de todas las tiendas (período global)
+            renderInformeGeneral();
         }
 
         const TIENDA_COLORS = ['#1a237e','#00695c','#c62828','#4527a0','#ef6c00','#00838f','#ad1457','#2e7d32','#5d4037','#283593','#6a1b9a','#0277bd','#37474f'];
@@ -2078,6 +2099,134 @@
             charts.motivos = new Chart(document.getElementById('chartMotivos'), { type: 'doughnut', data: { labels: MOTIVOS.filter(m => m !== 'pedido').map(m => m.charAt(0).toUpperCase()+m.slice(1)), datasets: [{ data: MOTIVOS.filter(m => m !== 'pedido').map(m => motivoCount[m]), backgroundColor: ['#1a237e','#283593','#3949ab','#5c6bc0','#7986cb','#9fa8da'], borderWidth: 2, borderColor: '#ffffff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } } });
             const pedidoByTienda = {}; TIENDAS.forEach(t => pedidoByTienda[t] = 0); data.filter(r => r.motivo === 'pedido').forEach(r => { if(r.tienda) pedidoByTienda[r.tienda] = (pedidoByTienda[r.tienda]||0) + (parseFloat(r.monto)||0); });
             charts.pedidos = new Chart(document.getElementById('chartPedidos'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Monto Pedido ($)', data: TIENDAS.map(t => pedidoByTienda[t].toFixed(2)), backgroundColor: 'rgba(46, 125, 50, 0.7)', borderColor: '#2e7d32', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+        }
+
+        // ===== INFORME GENERAL: comparativo de todas las tiendas =====
+        let chartsGeneral = {};
+
+        // Plugin propio para mostrar los valores (cantidades) sobre barras, líneas y donas.
+        // Solo actúa donde se active { plugins: { valueLabels: { enabled: true } } }.
+        const ValueLabelsPlugin = {
+            id: 'valueLabels',
+            afterDatasetsDraw(chart) {
+                const opts = chart.options.plugins && chart.options.plugins.valueLabels;
+                if (!opts || !opts.enabled) return;
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.font = '700 11px "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'center';
+                chart.data.datasets.forEach((dataset, di) => {
+                    const meta = chart.getDatasetMeta(di);
+                    if (meta.hidden) return;
+                    const type = meta.type || chart.config.type;
+                    const fmt = dataset.vlFormat || 'int';
+                    meta.data.forEach((el, i) => {
+                        const raw = dataset.data[i];
+                        const num = parseFloat(raw && typeof raw === 'object' ? raw.y : raw);
+                        if (!isFinite(num) || num === 0) return;
+                        const text = fmt === 'money'
+                            ? '$' + Math.round(num).toLocaleString('en-US')
+                            : (Number.isInteger(num) ? String(num) : num.toLocaleString('en-US'));
+                        if (type === 'doughnut' || type === 'pie') {
+                            const pos = el.tooltipPosition();
+                            ctx.textBaseline = 'middle';
+                            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+                            ctx.strokeText(text, pos.x, pos.y);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillText(text, pos.x, pos.y);
+                        } else {
+                            const yOff = type === 'line' ? 9 : 4;
+                            ctx.textBaseline = 'bottom';
+                            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+                            ctx.strokeText(text, el.x, el.y - yOff);
+                            ctx.fillStyle = type === 'line' ? (dataset.borderColor || '#1565c0') : '#2c3e50';
+                            ctx.fillText(text, el.x, el.y - yOff);
+                        }
+                    });
+                });
+                ctx.restore();
+            }
+        };
+        if (typeof Chart !== 'undefined') Chart.register(ValueLabelsPlugin);
+
+        function renderInformeGeneral() {
+            if (typeof Chart === 'undefined') return;
+            const cvCancelCant = document.getElementById('igChartCancelCant');
+            if (!cvCancelCant) return; // la tarjeta aún no está en el DOM
+
+            // Datos del período global (Hoy / Semana / Mes), TODAS las tiendas
+            const data = filterByPeriod(allRecords, currentPeriod);
+            const cancelaciones = data.filter(r => r.motivo !== 'pedido');
+            const pedidos = data.filter(r => r.motivo === 'pedido');
+
+            // Acumular por tienda
+            const cancelCant = {}, cancelMonto = {}, pedidoCant = {}, pedidoMonto = {};
+            TIENDAS.forEach(t => { cancelCant[t] = 0; cancelMonto[t] = 0; pedidoCant[t] = 0; pedidoMonto[t] = 0; });
+            cancelaciones.forEach(r => { if (r.tienda && cancelCant[r.tienda] !== undefined) { cancelCant[r.tienda]++; cancelMonto[r.tienda] += (parseFloat(r.monto) || 0); } });
+            pedidos.forEach(r => { if (r.tienda && pedidoCant[r.tienda] !== undefined) { pedidoCant[r.tienda]++; pedidoMonto[r.tienda] += (parseFloat(r.monto) || 0); } });
+
+            // Motivos de cancelación (todas las tiendas)
+            const motLabels = MOTIVOS.filter(m => m !== 'pedido');
+            const motivoCount = {}; motLabels.forEach(m => motivoCount[m] = 0);
+            cancelaciones.forEach(r => { if (r.motivo && motivoCount[r.motivo] !== undefined) motivoCount[r.motivo]++; });
+
+            // Totales para el resumen
+            const totCancelCant = cancelaciones.length;
+            const totCancelMonto = cancelaciones.reduce((s, r) => s + (parseFloat(r.monto) || 0), 0);
+            const totPedidoCant = pedidos.length;
+            const totPedidoMonto = pedidos.reduce((s, r) => s + (parseFloat(r.monto) || 0), 0);
+            const money = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const statsEl = document.getElementById('informeStats');
+            if (statsEl) statsEl.innerHTML = `
+                <div class="stat-card"><div class="stat-icon" style="background:#ffebee;color:#c62828;">❌</div><h4>Cancelados (cant.)</h4><p>${totCancelCant}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#fce4ec;color:#ad1457;">💸</div><h4>Monto Cancelado</h4><p>${money(totCancelMonto)}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1565c0;">📦</div><h4>Pedidos (cant.)</h4><p>${totPedidoCant}</p></div>
+                <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#2e7d32;">💵</div><h4>Monto Pedidos</h4><p>${money(totPedidoMonto)}</p></div>`;
+
+            const labels = TIENDAS.map(t => t.charAt(0).toUpperCase() + t.slice(1));
+
+            // Limpiar gráficas anteriores
+            Object.values(chartsGeneral).forEach(c => { if (c) c.destroy(); });
+            chartsGeneral = {};
+
+            const money$ = ctx => money(ctx.parsed.y);
+
+            // 1) Cancelados (cantidad) por tienda — cada tienda con su color
+            chartsGeneral.cancelCant = new Chart(cvCancelCant, {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Cancelados', data: TIENDAS.map(t => cancelCant[t]), backgroundColor: TIENDAS.map(t => tiendaColor(t)), borderWidth: 0, borderRadius: 4, vlFormat: 'int' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, valueLabels: { enabled: true } }, scales: { y: { beginAtZero: true, grace: '12%', ticks: { stepSize: 1, precision: 0 } } } }
+            });
+
+            // 2) Monto cancelado por tienda
+            chartsGeneral.cancelMonto = new Chart(document.getElementById('igChartCancelMonto'), {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Monto cancelado', data: TIENDAS.map(t => +cancelMonto[t].toFixed(2)), backgroundColor: 'rgba(198,40,40,0.75)', borderColor: '#c62828', borderWidth: 1, borderRadius: 4, vlFormat: 'money' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, valueLabels: { enabled: true }, tooltip: { callbacks: { label: money$ } } }, scales: { y: { beginAtZero: true, grace: '12%' } } }
+            });
+
+            // 3) Motivos de cancelación (todas las tiendas)
+            chartsGeneral.motivos = new Chart(document.getElementById('igChartMotivos'), {
+                type: 'doughnut',
+                data: { labels: motLabels.map(m => m.charAt(0).toUpperCase() + m.slice(1)), datasets: [{ data: motLabels.map(m => motivoCount[m]), backgroundColor: ['#1a237e', '#c62828', '#ef6c00', '#2e7d32', '#6a1b9a', '#00838f', '#ad1457', '#5d4037'], borderWidth: 2, borderColor: '#ffffff', vlFormat: 'int' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, valueLabels: { enabled: true } } }
+            });
+
+            // 4) Pedidos por tienda — monto (barras) + cantidad (línea), doble eje
+            chartsGeneral.pedidos = new Chart(document.getElementById('igChartPedidos'), {
+                type: 'bar',
+                data: { labels, datasets: [
+                    { type: 'bar', label: 'Monto pedidos ($)', data: TIENDAS.map(t => +pedidoMonto[t].toFixed(2)), backgroundColor: 'rgba(46,125,50,0.75)', borderColor: '#2e7d32', borderWidth: 1, borderRadius: 4, yAxisID: 'y', order: 2, vlFormat: 'money' },
+                    { type: 'line', label: 'Cantidad de pedidos', data: TIENDAS.map(t => pedidoCant[t]), borderColor: '#1565c0', backgroundColor: '#1565c0', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.3, yAxisID: 'y1', order: 1, vlFormat: 'int' }
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'top' }, valueLabels: { enabled: true } },
+                    scales: {
+                        y: { type: 'linear', position: 'left', beginAtZero: true, grace: '14%', title: { display: true, text: 'Monto ($)' } },
+                        y1: { type: 'linear', position: 'right', beginAtZero: true, grace: '18%', grid: { drawOnChartArea: false }, ticks: { stepSize: 1, precision: 0 }, title: { display: true, text: 'Cantidad' } }
+                    }
+                }
+            });
         }
 
         function exportAdminExcel() {
