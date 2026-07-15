@@ -509,6 +509,122 @@
         @keyframes apgPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.14); } }
         @keyframes apgPop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
+
+    <!-- ===================== TEMA OSCURO ===================== -->
+    <!-- Fondo negro y letras blancas. Los colores de gráficas, tarjetas de -->
+    <!-- tienda y badges de estado se conservan intactos. -->
+    <style id="temaOscuro">
+        body { background: #0a0a0a; color: #eaeaea; color-scheme: dark; }
+        .app-container { background: #101010; box-shadow: none; }
+
+        /* Navegación principal y sub-pestañas */
+        .navbar { background: #141414; border-bottom-color: #262626; }
+        .nav-tab { color: #9a9a9a; }
+        .nav-tab:hover { color: #c5cae9; background: rgba(255,255,255,0.04); }
+        .nav-tab.active { color: #e8eaf6; background: rgba(92,107,192,0.14); border-bottom-color: #5c6bc0; }
+        .admin-subtabs { background: #101010; border-bottom-color: #262626; box-shadow: 0 6px 10px -8px rgba(0,0,0,.6); }
+        .admin-subtab { color: #9a9a9a; }
+        .admin-subtab:hover { color: #c5cae9; background: rgba(255,255,255,0.04); }
+        .admin-subtab.active { color: #e8eaf6; background: rgba(92,107,192,0.16); border-bottom-color: #5c6bc0; }
+
+        /* Encabezados */
+        .section-header { border-bottom-color: #262626; }
+        .section-title { color: #e8eaf6; }
+        .section-desc { color: #9a9a9a; }
+        .tienda-detail-title { color: #e8eaf6; }
+
+        /* Tarjetas */
+        .card { background: #171717; border-color: #2a2a2a; box-shadow: none; }
+        .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.45); }
+        .card-header { border-bottom-color: #2a2a2a; }
+        .card-header h3 { color: #ececf2; }
+
+        /* Tablas */
+        .table-container { border-color: #2a2a2a; }
+        table { background: #171717; }
+        td { color: #dcdcdc; border-bottom-color: #262626; }
+        tr:hover { background: #1e1e1e; }
+        td input, td select, td textarea { background: #1f1f1f; color: #f0f0f0; border-color: #3a3a3a; }
+        td input:focus, td select:focus, td textarea:focus { border-color: #5c6bc0; box-shadow: 0 0 0 3px rgba(92,107,192,0.22); }
+
+        /* Estadísticas */
+        .stat-card { background: #171717; border-color: #2a2a2a; box-shadow: none; }
+        .stat-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
+        .stat-card h4 { color: #9a9a9a; }
+        .stat-card p { color: #c5cae9; }
+
+        /* Gráficas */
+        .chart-card { background: #171717; border-color: #2a2a2a; box-shadow: none; }
+        .chart-card h3 { color: #c5cae9; }
+
+        /* Selector de período */
+        .period-btn { background: #171717; color: #9a9a9a; border-color: #333; }
+        .period-btn:hover:not(.active) { border-color: #5c6bc0; color: #c5cae9; }
+        .period-btn.active { background: #3949ab; border-color: #3949ab; color: #fff; }
+
+        /* Filtros */
+        .admin-filters { background: #141414; border-color: #2a2a2a; }
+        .admin-filters input, .admin-filters select { background: #1f1f1f; color: #f0f0f0; border-color: #3a3a3a; }
+
+        /* Login */
+        .login-box { background: #171717; border-color: #2a2a2a; box-shadow: none; }
+        .login-box h2 { color: #e8eaf6; }
+        .login-box p { color: #9a9a9a; }
+        .login-box input { background: #1f1f1f; color: #f0f0f0; border-color: #2a2a2a; }
+        .login-box input:focus { border-color: #5c6bc0; box-shadow: 0 0 0 4px rgba(92,107,192,0.18); }
+
+        /* Estado vacío */
+        .empty-state { color: #8a8a8a; }
+        .empty-state h4 { color: #b0b0b0; }
+        .tienda-card-empty { color: #9a9a9a; }
+
+        /* Modales */
+        .preview-modal-content { background: #171717; border-color: #2a2a2a; }
+        .preview-modal-body { color: #dcdcdc; }
+        .preview-ticket-card { background: #1f1f1f; }
+        .preview-field { border-bottom-color: #2f2f2f; }
+        .preview-field .label { color: #9a9a9a; }
+        .preview-field .value { color: #ececf2; }
+        .preview-modal-footer { background: #141414; border-top-color: #2a2a2a; }
+
+        /* Tarjetas móviles */
+        .mobile-card { background: #171717; border-color: #2a2a2a; box-shadow: none; }
+        .mobile-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+        .mobile-card-header { border-bottom-color: #2a2a2a; }
+        .mobile-field-label { color: #9a9a9a; }
+        .mobile-field-input, .mobile-field-select, .mobile-field-textarea { background: #1f1f1f; color: #f0f0f0; border-color: #3a3a3a; }
+        .mobile-field-input:focus, .mobile-field-textarea:focus { border-color: #5c6bc0; box-shadow: 0 0 0 3px rgba(92,107,192,0.22); background: #242424; }
+
+        /* Cajas de fotos */
+        .photo-upload-box { background: #1a1a1a; border-color: #3a3a3a; }
+        .photo-upload-box:hover { background: #202020; border-color: #5c6bc0; }
+        .photo-label { color: #9a9a9a; }
+        .photo-upload-box.has-photo { background: #12291a; border-color: #2e7d32; }
+        .photo-upload-box.has-photo .photo-label { color: #81c784; }
+        .evidencia-box { background: #1c141f; border-color: #6a4b78; }
+
+        /* Opciones de respuesta / edición */
+        .respuesta-option { background: #1f1f1f; border-color: #3a3a3a; color: #b0b0b0; }
+        .respuesta-option:hover { border-color: #5c6bc0; }
+        .edit-field-input { background: #1f1f1f; color: #f0f0f0; border-color: #3a3a3a; }
+        .edit-field-input:focus { border-color: #5c6bc0; box-shadow: 0 0 0 3px rgba(92,107,192,0.22); }
+
+        /* Overlay de carga */
+        .loading-overlay { background: rgba(0,0,0,0.85); }
+        .loading-spinner { border-color: #333; border-top-color: #5c6bc0; }
+        .loading-text { color: #c5cae9; }
+
+        /* Visor público de ticket */
+        #ticketViewer { background: #0a0a0a; }
+        .tv-card { background: #171717; border-color: #2a2a2a; }
+        .tv-field { border-bottom-color: #2a2a2a; }
+        .tv-field .k { color: #9a9a9a; }
+        .tv-field .v { color: #c5cae9; }
+
+        /* Mantener el ícono del calendario oscuro en las tarjetas de tienda (fondo claro) */
+        .tienda-card-datefilter-row input[type="date"] { color-scheme: light; }
+    </style>
+
     <div id="sistemaApagadoOverlay">
         <div class="apg-box">
             <div class="apg-icon">🚫</div>
@@ -2137,9 +2253,9 @@
                         } else {
                             const yOff = type === 'line' ? 9 : 4;
                             ctx.textBaseline = 'bottom';
-                            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+                            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.6)';
                             ctx.strokeText(text, el.x, el.y - yOff);
-                            ctx.fillStyle = type === 'line' ? (dataset.borderColor || '#1565c0') : '#2c3e50';
+                            ctx.fillStyle = type === 'line' ? '#64b5f6' : '#ffffff';
                             ctx.fillText(text, el.x, el.y - yOff);
                         }
                     });
@@ -2147,7 +2263,13 @@
                 ctx.restore();
             }
         };
-        if (typeof Chart !== 'undefined') Chart.register(ValueLabelsPlugin);
+        if (typeof Chart !== 'undefined') {
+            Chart.register(ValueLabelsPlugin);
+            // Tema oscuro para las gráficas: ejes claros y rejilla tenue.
+            // Los colores de las barras/dona NO se tocan (van definidos por dataset).
+            Chart.defaults.color = '#c9c9d1';
+            Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+        }
 
         function renderInformeGeneral() {
             if (typeof Chart === 'undefined') return;
