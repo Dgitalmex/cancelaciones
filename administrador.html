@@ -688,7 +688,7 @@
                     <div class="table-container desktop-only">
                         <table id="dataTable">
                             <thead>
-                                <tr><th>#</th><th>Fecha</th><th>Tienda *</th><th>Folio</th><th>Monto</th><th>Motivo *</th><th>Notas</th><th>Tickets</th><th>Producto</th></tr>
+                                <tr><th>#</th><th>Fecha</th><th>Tienda *</th><th>Folio</th><th>Monto</th><th>Motivo *</th><th>Vendedor *</th><th>Notas</th><th>Tickets</th><th>Producto</th></tr>
                             </thead>
                             <tbody id="tableBody"></tbody>
                         </table>
@@ -757,6 +757,28 @@
                             <div class="chart-card"><h3>Pedidos por Tienda (Monto y Cantidad)</h3><div class="chart-container"><canvas id="igChartPedidos"></canvas></div></div>
                         </div>
                     </div>
+
+                    <!-- ===== REPORTE DE CANCELACIONES POR VENDEDOR ===== -->
+                    <div class="card" id="reporteVendedoresCard" style="margin-top:25px;">
+                        <div class="card-header" style="flex-wrap:wrap;">
+                            <div class="card-icon">👤</div>
+                            <h3>Reporte de Cancelaciones por Vendedor</h3>
+                            <button class="btn btn-warning" onclick="exportVendedoresExcel()" style="margin-left:auto;margin-bottom:0;width:auto;">📊 Exportar</button>
+                        </div>
+                        <div class="section-desc" style="margin-left:0;margin-top:-8px;margin-bottom:18px;">Cantidad y monto de cancelaciones agrupadas por vendedor, según el período (Hoy / Semana / Mes). Los nombres se unifican en MAYÚSCULAS (juan = Juan = JUAN).</div>
+                        <div class="table-container">
+                            <table id="vendedoresTable" style="min-width:520px;">
+                                <thead>
+                                    <tr><th>#</th><th>Vendedor</th><th>Cancelaciones</th><th>Monto Cancelado</th></tr>
+                                </thead>
+                                <tbody id="vendedoresTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="chart-card" style="margin-top:20px;">
+                            <h3>Cancelaciones por Vendedor (Monto y Cantidad)</h3>
+                            <div class="chart-container" style="height:360px;"><canvas id="igChartVendedores"></canvas></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Vista de detalle de una tienda -->
@@ -788,7 +810,7 @@
                         <div class="table-container">
                             <table id="adminTable">
                                 <thead>
-                                    <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
+                                    <tr><th>Fecha</th><th>Tienda</th><th>Folio</th><th>Monto</th><th>Motivo</th><th>Vendedor</th><th>Notas</th><th>Tickets</th><th>Producto</th><th>Eliminar</th><th>Respuesta</th></tr>
                                 </thead>
                                 <tbody id="adminTableBody"></tbody>
                             </table>
@@ -1145,6 +1167,7 @@
                     <div class="tv-field"><span class="k">📋 Folio</span><span class="v">${tvEsc(r.folio) || 'N/A'}</span></div>
                     <div class="tv-field"><span class="k">💰 Monto</span><span class="v">$${tvEsc(formatDisplayMonto(r.monto)) || '0.00'}</span></div>
                     <div class="tv-field"><span class="k">📝 Motivo</span><span class="v">${tvEsc(cap(r.motivo))}</span></div>
+                    <div class="tv-field"><span class="k">👤 Vendedor</span><span class="v">${tvEsc(vendedorKey(r.vendedor))}</span></div>
                     ${r.notas ? `<div class="tv-field"><span class="k">📌 Notas</span><span class="v">${tvEsc(r.notas)}</span></div>` : ''}
                     ${respHtml}
                 </div>
@@ -1246,6 +1269,7 @@
                 folio: '', 
                 monto: '', 
                 motivo: '', 
+                vendedor: '',
                 notas: '',
                 fotoTickets: '',
                 fotosProducto: []
@@ -1302,6 +1326,10 @@
                 </div>`;
         }
 
+        // Normaliza el nombre del vendedor a MAYUSCULAS y sin espacios de mas,
+        // para que juan / Juan / JUAN se traten como el mismo vendedor.
+        function vendedorKey(v) { return String(v == null ? '' : v).toUpperCase().replace(/\s+/g, ' ').trim(); }
+
         function formatDisplayMonto(val) {
             if (val === undefined || val === null || val === '') return '';
             const parts = String(val).split('.');
@@ -1344,6 +1372,7 @@
                     <td><input type="text" value="${row.folio}" onchange="updateRow(${idx},'folio',this.value)" placeholder="Folio"></td>
                     <td><input type="text" inputmode="decimal" value="${formatDisplayMonto(row.monto)}" oninput="formatMontoInput(${idx}, this)" placeholder="0.00"></td>
                     <td><select required onchange="updateRow(${idx},'motivo',this.value)">${motivoOpts}</select></td>
+                    <td><input type="text" style="text-transform:uppercase" value="${row.vendedor||''}" oninput="updateRow(${idx},'vendedor',this.value.toUpperCase())" placeholder="Vendedor"></td>
                     <td><textarea onchange="updateRow(${idx},'notas',this.value)" placeholder="Notas adicionales...">${row.notas}</textarea></td>
                     <td>
                         <div class="photo-upload-box ${ticketsHasPhoto}" style="padding:10px;min-height:80px;">
@@ -1401,6 +1430,10 @@
                     <div class="mobile-field">
                         <span class="mobile-field-label">📝 Motivo *</span>
                         <select class="mobile-field-select" required onchange="updateRow(${idx},'motivo',this.value)">${motivoOpts}</select>
+                    </div>
+                    <div class="mobile-field">
+                        <span class="mobile-field-label">👤 Vendedor *</span>
+                        <input type="text" class="mobile-field-input" style="text-transform:uppercase" value="${row.vendedor||''}" oninput="updateRow(${idx},'vendedor',this.value.toUpperCase())" placeholder="Vendedor">
                     </div>
                     <div class="mobile-field">
                         <span class="mobile-field-label">📌 Notas</span>
@@ -1528,7 +1561,7 @@
 
         function showPreviewModal() {
             for (let row of currentRows) { if (tiendaEstaApagada(row.tienda)) { mostrarSistemaApagado(row.tienda, row.id); return; } }
-            for(let row of currentRows) { if(!row.tienda) { showToast('La tienda es obligatoria en todas las filas', 'error'); return; } if(!row.motivo) { showToast('El motivo es obligatorio en todas las filas', 'error'); return; } }
+            for(let row of currentRows) { if(!row.tienda) { showToast('La tienda es obligatoria en todas las filas', 'error'); return; } if(!row.motivo) { showToast('El motivo es obligatorio en todas las filas', 'error'); return; } if(!row.vendedor || !row.vendedor.trim()) { showToast('El vendedor es obligatorio en todas las filas', 'error'); return; } }
 
             const existingAlert = document.getElementById('photoAlert');
             if (existingAlert) existingAlert.remove();
@@ -1541,7 +1574,7 @@
             });
             if(images.length > 0) { html += '<div class="preview-images">'; images.forEach(img => { html += `<img src="${img.src}" onclick="openModal('${img.src}')" title="${img.label} - Clic para ver completa">`; }); html += '</div>'; }
             currentRows.forEach((row, i) => {
-                html += `<div class="preview-ticket-card"><h4>📄 Ticket ${i+1}</h4><div class="preview-field"><span class="label">📅 Fecha:</span><span class="value">${row.fecha}</span></div><div class="preview-field"><span class="label">🏪 Tienda:</span><span class="value">${row.tienda.charAt(0).toUpperCase()+row.tienda.slice(1)}</span></div><div class="preview-field"><span class="label">📋 Folio:</span><span class="value">${row.folio || 'N/A'}</span></div><div class="preview-field"><span class="label">💰 Monto:</span><span class="value">$${formatDisplayMonto(row.monto) || '0.00'}</span></div><div class="preview-field"><span class="label">📝 Motivo:</span><span class="value">${row.motivo.charAt(0).toUpperCase()+row.motivo.slice(1)}</span></div>${row.fotoTickets ? `<div class="preview-field"><span class="label">📸 Tickets:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${getFotosProducto(row).length ? `<div class="preview-field"><span class="label">📸 Producto:</span><span class="value" style="color:#2e7d32">✅ ${getFotosProducto(row).length} foto(s)</span></div>` : ''}${row.notas ? `<div class="preview-field"><span class="label">📌 Notas:</span><span class="value">${row.notas}</span></div>` : ''}</div>`;
+                html += `<div class="preview-ticket-card"><h4>📄 Ticket ${i+1}</h4><div class="preview-field"><span class="label">📅 Fecha:</span><span class="value">${row.fecha}</span></div><div class="preview-field"><span class="label">🏪 Tienda:</span><span class="value">${row.tienda.charAt(0).toUpperCase()+row.tienda.slice(1)}</span></div><div class="preview-field"><span class="label">📋 Folio:</span><span class="value">${row.folio || 'N/A'}</span></div><div class="preview-field"><span class="label">💰 Monto:</span><span class="value">$${formatDisplayMonto(row.monto) || '0.00'}</span></div><div class="preview-field"><span class="label">📝 Motivo:</span><span class="value">${row.motivo.charAt(0).toUpperCase()+row.motivo.slice(1)}</span></div><div class="preview-field"><span class="label">👤 Vendedor:</span><span class="value">${vendedorKey(row.vendedor)}</span></div>${row.fotoTickets ? `<div class="preview-field"><span class="label">📸 Tickets:</span><span class="value" style="color:#2e7d32">✅ Adjunto</span></div>` : ''}${getFotosProducto(row).length ? `<div class="preview-field"><span class="label">📸 Producto:</span><span class="value" style="color:#2e7d32">✅ ${getFotosProducto(row).length} foto(s)</span></div>` : ''}${row.notas ? `<div class="preview-field"><span class="label">📌 Notas:</span><span class="value">${row.notas}</span></div>` : ''}</div>`;
                 total += parseFloat(row.monto) || 0;
             });
             html += `<div class="preview-total"><p>Monto Total a Enviar</p><h3>$${total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</h3></div>`;
@@ -1560,7 +1593,7 @@
             try {
                 let msg = '*📄 REPORTE DE TICKETS*\n\n', total = 0;
                 currentRows.forEach((row, i) => {
-                    msg += `*Ticket ${i+1}*\n📅 Fecha: ${row.fecha}\n🏪 Tienda: ${row.tienda}\n📋 Folio: ${row.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(row.monto) || '0.00'}\n📝 Motivo: ${row.motivo}\n`;
+                    msg += `*Ticket ${i+1}*\n📅 Fecha: ${row.fecha}\n🏪 Tienda: ${row.tienda}\n📋 Folio: ${row.folio || 'N/A'}\n💰 Monto: $${formatDisplayMonto(row.monto) || '0.00'}\n📝 Motivo: ${row.motivo}\n👤 Vendedor: ${vendedorKey(row.vendedor)}\n`;
                     if (row.fotoTickets) msg += `📸 Tickets: Adjunto\n`;
                     const fpCount = getFotosProducto(row).length;
                     if (fpCount) msg += `📸 Producto: ${fpCount} foto(s) adjunta(s)\n`;
@@ -1671,6 +1704,9 @@
 
             // Informe General: comparativo de todas las tiendas (período global)
             renderInformeGeneral();
+
+            // Reporte de cancelaciones por vendedor
+            renderReporteVendedores();
         }
 
         const TIENDA_COLORS = ['#1a237e','#00695c','#c62828','#4527a0','#ef6c00','#00838f','#ad1457','#2e7d32','#5d4037','#283593','#6a1b9a','#0277bd','#37474f'];
@@ -1787,7 +1823,7 @@
 
         function renderAdminTable(data) {
             const tbody = document.getElementById('adminTableBody');
-            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>'; return; }
+            if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-state-icon">📋</div><h4>No hay registros</h4><p>Envía datos desde la pestaña Capturar para visualizarlos aquí</p></div></td></tr>'; return; }
             adminRecordsMap = {};
             tbody.innerHTML = data.map(r => {
                 adminRecordsMap[r.id] = r;
@@ -1816,6 +1852,7 @@
                     <td><input type="text" class="edit-field-input" value="${r.folio || ''}" onchange="requestFieldEdit('${r.id}','folio',this.value,'${(r.folio||'').replace(/'/g,"\\'")}',this.value)"></td>
                     <td><input type="text" inputmode="decimal" class="edit-field-input" value="${formatDisplayMonto(r.monto)}" oninput="formatMontoInputGeneric(this)" onchange="requestFieldEdit('${r.id}','monto',this.value,'${formatDisplayMonto(r.monto)}',this.value)"></td>
                     <td><select class="edit-field-input" onchange="requestFieldEdit('${r.id}','motivo',this.value,'${r.motivo||''}',this.value)">${motivoOpts}</select></td>
+                    <td><input type="text" class="edit-field-input" style="text-transform:uppercase" value="${vendedorKey(r.vendedor)}" onchange="requestFieldEdit('${r.id}','vendedor',this.value.toUpperCase(),'${vendedorKey(r.vendedor).replace(/'/g,"\\'")}',this.value.toUpperCase())"></td>
                     <td><textarea class="edit-field-input" onchange="requestFieldEdit('${r.id}','notas',this.value,'${(r.notas||'').replace(/'/g,"\\'")}',this.value)">${r.notas || ''}</textarea></td>
                     <td>${ticketsHtml}</td>
                     <td>${productoHtml}</td>
@@ -1839,7 +1876,7 @@
         let editContext = null;
 
         function fieldLabel(field) {
-            return { fecha:'Fecha', tienda:'Tienda', folio:'Folio', monto:'Monto', motivo:'Motivo', notas:'Notas' }[field] || field;
+            return { fecha:'Fecha', tienda:'Tienda', folio:'Folio', monto:'Monto', motivo:'Motivo', vendedor:'Vendedor', notas:'Notas' }[field] || field;
         }
 
         function requestFieldEdit(recordId, field, rawNewValue, displayOld, displayNew) {
@@ -2351,13 +2388,72 @@
             });
         }
 
+        // ===== REPORTE DE CANCELACIONES POR VENDEDOR =====
+        let chartsVendedores = {};
+        let _vendedoresReportRows = [];
+
+        function renderReporteVendedores() {
+            const tbody = document.getElementById('vendedoresTableBody');
+            if (!tbody) return;
+            // Cancelaciones (motivo != 'pedido') del periodo; si hay una tienda abierta, solo esa.
+            let data = filterByPeriod(allRecords, currentPeriod).filter(r => r.motivo !== 'pedido');
+            if (selectedTienda) data = data.filter(r => r.tienda === selectedTienda);
+            const map = {};
+            data.forEach(r => {
+                const key = vendedorKey(r.vendedor);
+                if (!key) return; // ignorar registros sin vendedor
+                if (!map[key]) map[key] = { vendedor: key, cantidad: 0, monto: 0 };
+                map[key].cantidad++;
+                map[key].monto += parseFloat(r.monto) || 0;
+            });
+            const rows = Object.values(map).sort((a, b) => b.cantidad - a.cantidad || b.monto - a.monto);
+            _vendedoresReportRows = rows;
+            const money = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">👤</div><h4>Sin cancelaciones</h4><p>No hay cancelaciones con vendedor en este periodo</p></div></td></tr>';
+            } else {
+                tbody.innerHTML = rows.map((r, i) => `<tr><td>${i + 1}</td><td style="font-weight:600;">${r.vendedor}</td><td>${r.cantidad}</td><td>${money(r.monto)}</td></tr>`).join('');
+            }
+            if (typeof Chart === 'undefined') return;
+            const top = rows.slice(0, 15);
+            const labels = top.map(r => r.vendedor);
+            Object.values(chartsVendedores).forEach(c => { if (c) c.destroy(); });
+            chartsVendedores = {};
+            const cv = document.getElementById('igChartVendedores');
+            if (cv) chartsVendedores.main = new Chart(cv, {
+                type: 'bar',
+                data: { labels, datasets: [
+                    { type: 'bar', label: 'Monto cancelado ($)', data: top.map(r => +r.monto.toFixed(2)), backgroundColor: 'rgba(198,40,40,0.75)', borderColor: '#c62828', borderWidth: 1, borderRadius: 4, yAxisID: 'y', order: 2, vlFormat: 'money' },
+                    { type: 'line', label: 'Cantidad de cancelaciones', data: top.map(r => r.cantidad), borderColor: '#1565c0', backgroundColor: '#1565c0', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.3, yAxisID: 'y1', order: 1, vlFormat: 'int' }
+                ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'top' }, valueLabels: { enabled: true }, tooltip: { callbacks: { label: ctx => ctx.dataset.type === 'line' ? (ctx.dataset.label + ': ' + ctx.parsed.y) : (ctx.dataset.label + ': $' + Number(ctx.parsed.y).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) } } },
+                    scales: {
+                        y: { type: 'linear', position: 'left', beginAtZero: true, grace: '14%', title: { display: true, text: 'Monto ($)' } },
+                        y1: { type: 'linear', position: 'right', beginAtZero: true, grace: '18%', grid: { drawOnChartArea: false }, ticks: { stepSize: 1, precision: 0 }, title: { display: true, text: 'Cantidad' } }
+                    }
+                }
+            });
+        }
+
+        function exportVendedoresExcel() {
+            const rows = _vendedoresReportRows || [];
+            if (!rows.length) { showToast('No hay datos de vendedores para exportar', 'error'); return; }
+            const ws_data = [['Vendedor', 'Cancelaciones', 'Monto Cancelado'], ...rows.map(r => [r.vendedor, r.cantidad, +r.monto.toFixed(2)])];
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 18 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Por Vendedor');
+            XLSX.writeFile(wb, `Reporte_Vendedores_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('¡Reporte por vendedor descargado!', 'success');
+        }
+
         function exportAdminExcel() {
             const filterDate = document.getElementById('filterDate').value;
             const filterTienda = document.getElementById('filterTienda').value;
             const filterFolio = document.getElementById('filterFolio').value.toLowerCase();
             let filtered = allRecords.filter(r => { if(filterDate && r.fecha !== filterDate) return false; if(filterTienda && r.tienda !== filterTienda) return false; if(filterFolio && (!r.folio || !r.folio.toLowerCase().includes(filterFolio))) return false; return true; });
-            const ws_data = [['Fecha','Tienda','Folio','Monto','Motivo','Notas'], ...filtered.map(r => [r.fecha, r.tienda, r.folio, r.monto, r.motivo, r.notas])];
-            const ws = XLSX.utils.aoa_to_sheet(ws_data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Reporte'); ws['!cols'] = [{wch:12},{wch:15},{wch:12},{wch:10},{wch:20},{wch:30}];
+            const ws_data = [['Fecha','Tienda','Folio','Monto','Motivo','Vendedor','Notas'], ...filtered.map(r => [r.fecha, r.tienda, r.folio, r.monto, r.motivo, vendedorKey(r.vendedor), r.notas])];
+            const ws = XLSX.utils.aoa_to_sheet(ws_data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Reporte'); ws['!cols'] = [{wch:12},{wch:15},{wch:12},{wch:10},{wch:20},{wch:20},{wch:30}];
             XLSX.writeFile(wb, `Reporte_Cancelaciones_${new Date().toISOString().split('T')[0]}.xlsx`);
             showToast('¡Reporte descargado exitosamente!', 'success');
         }
