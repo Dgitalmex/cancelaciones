@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, limit, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCGoj6svi5Na7xoZU9asJZ0xf4qBd37ys8",
@@ -30,7 +30,7 @@
         });
 
         window.firebaseDB = db;
-        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy };
+        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, limit };
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -492,6 +492,37 @@
 .admin-subtab:hover{color:#1a237e;background:rgba(26,35,126,.04)}
 .admin-subtab.active{color:#1a237e;border-bottom-color:#1a237e;background:rgba(26,35,126,.06)}
 #adminSubMarcador iframe{display:block;width:100%}
+/* Filtros del reporte por vendedor */
+.vend-filtros { background:#f8f9fc; border:1px solid #e8ecf1; border-radius:12px; padding:16px; margin-bottom:18px; }
+.vend-filtro-fila { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:6px; }
+.vend-filtro-fila label { display:block; font-size:0.68rem; color:#6b7c93; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.vend-filtros input[type=date] { padding:9px 10px; border:1px solid #d1d8e0; border-radius:8px; font-size:0.85rem; color:#2c3e50; background:white; }
+.vend-filtro-grupo { margin-top:12px; }
+.vend-filtro-titulo { font-size:0.7rem; color:#6b7c93; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+.vend-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.vend-chip { padding:7px 14px; border:2px solid #e8ecf1; background:white; color:#6b7c93; border-radius:20px; cursor:pointer; font-size:0.76rem; font-weight:600; transition:all 0.2s; }
+.vend-chip:hover { border-color:#1a237e; color:#1a237e; }
+.vend-chip.sel { background:#1a237e; color:white; border-color:#1a237e; }
+/* Layout compacto: tabla izquierda + gráfica derecha */
+.vend-report-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; margin-top:20px; }
+@media (max-width:900px){ .vend-report-grid{ grid-template-columns:1fr; } }
+#vendedoresTable { min-width:340px; }
+/* Lista desplegable de vendedores (con buscador) */
+.vend-dropdown { position:relative; display:inline-block; min-width:260px; max-width:100%; }
+.vend-dropdown-btn { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid #d1d8e0; border-radius:8px; background:white; color:#2c3e50; font-size:0.85rem; font-weight:600; cursor:pointer; }
+.vend-dropdown-btn:hover { border-color:#1a237e; }
+.vend-dropdown-caret { color:#6b7c93; }
+.vend-dropdown-panel { display:none; position:absolute; z-index:50; top:calc(100% + 4px); left:0; width:300px; max-width:90vw; background:white; border:1px solid #d1d8e0; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.15); padding:10px; }
+.vend-dropdown-panel.open { display:block; }
+.vend-dropdown-search { width:100%; padding:8px 10px; border:1px solid #d1d8e0; border-radius:8px; font-size:0.85rem; margin-bottom:8px; color:#2c3e50; }
+.vend-dropdown-actions { display:flex; gap:8px; margin-bottom:8px; }
+.vend-dropdown-actions button { flex:1; padding:6px; border:1px solid #d1d8e0; border-radius:6px; background:#f8f9fc; color:#1a237e; font-size:0.75rem; font-weight:600; cursor:pointer; }
+.vend-dropdown-actions button:hover { background:#eef2f7; }
+.vend-dropdown-list { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+.vend-dropdown-item { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:6px; font-size:0.82rem; color:#2c3e50; cursor:pointer; }
+.vend-dropdown-item:hover { background:#f2f5fb; }
+.vend-dropdown-item input { width:16px; height:16px; accent-color:#1a237e; }
+.vend-dropdown-empty { padding:10px; font-size:0.8rem; color:#9aa3b2; text-align:center; }
 
     </style>
 <base target="_blank">
@@ -623,6 +654,23 @@
 
         /* Mantener el ícono del calendario oscuro en las tarjetas de tienda (fondo claro) */
         .tienda-card-datefilter-row input[type="date"] { color-scheme: light; }
+
+        /* Filtros del reporte por vendedor (tema oscuro) */
+        .vend-filtros { background:#141414; border-color:#2a2a2a; }
+        .vend-filtros input[type=date] { background:#1f1f1f; color:#f0f0f0; border-color:#3a3a3a; color-scheme: dark; }
+        .vend-filtro-titulo, .vend-filtro-fila label { color:#9a9a9a; }
+        .vend-chip { background:#1f1f1f; border-color:#3a3a3a; color:#b0b0b0; }
+        .vend-chip:hover { border-color:#5c6bc0; color:#c5cae9; }
+        .vend-chip.sel { background:#3949ab; border-color:#3949ab; color:#fff; }
+        .vend-dropdown-btn { background:#1f1f1f; color:#f0f0f0; border-color:#3a3a3a; }
+        .vend-dropdown-btn:hover { border-color:#5c6bc0; }
+        .vend-dropdown-caret { color:#9a9a9a; }
+        .vend-dropdown-panel { background:#171717; border-color:#2a2a2a; box-shadow:0 10px 30px rgba(0,0,0,0.55); }
+        .vend-dropdown-search { background:#1f1f1f; color:#f0f0f0; border-color:#3a3a3a; }
+        .vend-dropdown-actions button { background:#1f1f1f; color:#c5cae9; border-color:#3a3a3a; }
+        .vend-dropdown-actions button:hover { background:#242424; }
+        .vend-dropdown-item { color:#dcdcdc; }
+        .vend-dropdown-item:hover { background:#242424; }
     </style>
 
     <div id="sistemaApagadoOverlay">
@@ -733,7 +781,9 @@
                             <div class="card-icon">🏪</div>
                             <h3>Tiendas</h3>
                         </div>
-                        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                            <span id="recordsCountInfo" style="font-size:0.75rem;color:#9a9a9a;font-weight:600;"></span>
+                            <button class="btn btn-secondary" onclick="cargarMasRegistros()">⬇️ Ver más registros</button>
                             <button class="btn btn-warning" onclick="exportAdminExcel()">📊 Exportar Reporte</button>
                             <button class="btn btn-danger" onclick="showCleanDatabaseModal()">🗑️ Limpiar Base de Datos</button>
                         </div>
@@ -766,17 +816,53 @@
                             <button class="btn btn-warning" onclick="exportVendedoresExcel()" style="margin-left:auto;margin-bottom:0;width:auto;">📊 Exportar</button>
                         </div>
                         <div class="section-desc" style="margin-left:0;margin-top:-8px;margin-bottom:18px;">Cantidad y monto de cancelaciones agrupadas por vendedor, según el período (Hoy / Semana / Mes). Los nombres se unifican en MAYÚSCULAS (juan = Juan = JUAN).</div>
-                        <div class="table-container">
-                            <table id="vendedoresTable" style="min-width:520px;">
-                                <thead>
-                                    <tr><th>#</th><th>Vendedor</th><th>Cancelaciones</th><th>Monto Cancelado</th></tr>
-                                </thead>
-                                <tbody id="vendedoresTableBody"></tbody>
-                            </table>
+                        <div class="vend-filtros">
+                            <div class="vend-filtro-fila">
+                                <div>
+                                    <label>Desde (día)</label>
+                                    <input type="date" id="vendDesde" onchange="setVendFecha()">
+                                </div>
+                                <div>
+                                    <label>Hasta</label>
+                                    <input type="date" id="vendHasta" onchange="setVendFecha()">
+                                </div>
+                                <button class="btn btn-secondary" onclick="limpiarVendFiltros()" style="margin-bottom:0;">Limpiar filtros</button>
+                            </div>
+                            <div class="vend-filtro-grupo">
+                                <div class="vend-filtro-titulo">🏪 Tiendas (elige una o varias; vacío = todas):</div>
+                                <div id="vendTiendasChips" class="vend-chips"></div>
+                            </div>
+                            <div class="vend-filtro-grupo">
+                                <div class="vend-filtro-titulo">👤 Vendedores (elige uno o varios; vacío = todos):</div>
+                                <div class="vend-dropdown" id="vendDropdown">
+                                    <button type="button" class="vend-dropdown-btn" onclick="toggleVendDropdown(event)">
+                                        <span id="vendDropdownLabel">Todos los vendedores</span>
+                                        <span class="vend-dropdown-caret">▾</span>
+                                    </button>
+                                    <div class="vend-dropdown-panel" id="vendDropdownPanel">
+                                        <input type="text" class="vend-dropdown-search" id="vendDropdownSearch" placeholder="Buscar vendedor..." oninput="renderVendDropdownList()">
+                                        <div class="vend-dropdown-actions">
+                                            <button type="button" onclick="vendSelectAll(true)">Todos</button>
+                                            <button type="button" onclick="vendSelectAll(false)">Ninguno</button>
+                                        </div>
+                                        <div class="vend-dropdown-list" id="vendDropdownList"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="chart-card" style="margin-top:20px;">
-                            <h3>Cancelaciones por Vendedor (Monto y Cantidad)</h3>
-                            <div class="chart-container" style="height:360px;"><canvas id="igChartVendedores"></canvas></div>
+                        <div class="vend-report-grid">
+                            <div class="table-container" style="margin:0;">
+                                <table id="vendedoresTable">
+                                    <thead>
+                                        <tr><th>Vendedor</th><th>Cancelaciones</th><th>Monto Cancelado</th><th>Tienda</th></tr>
+                                    </thead>
+                                    <tbody id="vendedoresTableBody"></tbody>
+                                </table>
+                            </div>
+                            <div class="chart-card" style="margin:0;">
+                                <h3>Cancelaciones por Vendedor (Monto y Cantidad)</h3>
+                                <div class="chart-container" style="height:320px;"><canvas id="igChartVendedores"></canvas></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -850,6 +936,13 @@
         <div class="modal-content" onclick="event.stopPropagation()">
             <button class="modal-close" onclick="closeModal()">✕</button>
             <img id="modalImage" src="" alt="Ticket completo">
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="galeriaModal" onclick="closeGaleria(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:95%;">
+            <button class="modal-close" onclick="closeGaleria()">✕</button>
+            <div id="galeriaBody" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-height:90vh;overflow:auto;"></div>
         </div>
     </div>
 
@@ -1182,14 +1275,20 @@
             allRecords = JSON.parse(localStorage.getItem('sentRecords') || '[]');
         }
 
+        let recordsLimit = 500;      // cuántos registros recientes carga el panel
+        let recordsUnsub = null;     // para cancelar la suscripción anterior al pedir "ver más"
+
         function loadRecordsRealtime() {
             if (!firebaseReady) return;
-            const q = fbRefs.query(fbRefs.collection(db, 'registros'), fbRefs.orderBy('sentAt', 'desc'));
-            fbRefs.onSnapshot(q, (snapshot) => {
+            if (recordsUnsub) { try { recordsUnsub(); } catch (e) {} recordsUnsub = null; }
+            const q = fbRefs.query(fbRefs.collection(db, 'registros'), fbRefs.orderBy('sentAt', 'desc'), fbRefs.limit(recordsLimit));
+            recordsUnsub = fbRefs.onSnapshot(q, (snapshot) => {
                 allRecords = [];
                 snapshot.forEach(doc => {
                     allRecords.push({ ...doc.data(), id: doc.id });
                 });
+                const info = document.getElementById('recordsCountInfo');
+                if (info) info.textContent = 'Mostrando los ' + allRecords.length + ' registros más recientes';
                 if (isAdminLogged) updateAdmin();
                 setConnectionStatus(snapshot.metadata.fromCache ? 'cache' : 'online');
             }, (err) => {
@@ -1197,6 +1296,12 @@
                 loadLocalRecords();
                 setConnectionStatus('offline');
             });
+        }
+
+        function cargarMasRegistros() {
+            recordsLimit += 500;
+            showToast('Cargando más registros...', 'success');
+            loadRecordsRealtime();
         }
 
         function populateSelects() {
@@ -1617,18 +1722,29 @@
                     }
                 }
 
-                // Save records to Firestore with Base64 images
-                const recordsToSave = currentRows.map(row => {
-                    const { id, ...rest } = row;
-                    return { ...rest, sentAt: new Date().toISOString() };
-                });
-
+                // Guardar en Firestore: el texto va en 'registros' (ligero, carga rápido)
+                // y las fotos en 'registros_media' (se descargan solo al abrirlas).
                 if (firebaseReady) {
-                    for (const record of recordsToSave) {
-                        await fbRefs.addDoc(fbRefs.collection(db, 'registros'), record);
+                    for (const row of currentRows) {
+                        const fotosProducto = getFotosProducto(row);
+                        const light = {
+                            fecha: row.fecha, tienda: row.tienda, folio: row.folio,
+                            monto: row.monto, motivo: row.motivo, vendedor: row.vendedor || '',
+                            notas: row.notas, sentAt: new Date().toISOString(),
+                            hasTickets: !!row.fotoTickets, productoCount: fotosProducto.length
+                        };
+                        const ref = await fbRefs.addDoc(fbRefs.collection(db, 'registros'), light);
+                        if (row.fotoTickets || fotosProducto.length) {
+                            try {
+                                await fbRefs.setDoc(fbRefs.doc(db, 'registros_media', ref.id), { fotoTickets: row.fotoTickets || '', fotosProducto: fotosProducto });
+                            } catch (e) { console.error('Error guardando fotos:', e); showToast('⚠️ Se guardó el ticket pero la foto falló (revisa permisos de registros_media en Firebase)', 'error'); }
+                        }
                     }
                 } else {
-                    const localRecords = recordsToSave.map(r => ({ id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8), ...r }));
+                    const localRecords = currentRows.map(row => {
+                        const { id, ...rest } = row;
+                        return { id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), ...rest, sentAt: new Date().toISOString() };
+                    });
                     allRecords.push(...localRecords);
                     localStorage.setItem('sentRecords', JSON.stringify(allRecords));
                 }
@@ -1646,6 +1762,45 @@
                 document.getElementById('loadingOverlay').classList.remove('active');
             }
         }
+
+        // ===== Fotos bajo demanda: aceleran el panel (se bajan solo al dar clic) =====
+        const mediaCache = {};
+        async function getMedia(id, record) {
+            // Compatibilidad: registros antiguos traen las fotos incrustadas
+            if (record && (record.fotoTickets || record.fotoProducto || (Array.isArray(record.fotosProducto) && record.fotosProducto.length))) {
+                return { fotoTickets: record.fotoTickets || '', fotosProducto: getFotosProducto(record) };
+            }
+            if (mediaCache[id]) return mediaCache[id];
+            if (!firebaseReady || String(id).startsWith('local_')) return { fotoTickets: '', fotosProducto: [] };
+            try {
+                const snap = await fbRefs.getDoc(fbRefs.doc(db, 'registros_media', id));
+                const d = snap.exists() ? snap.data() : {};
+                const media = { fotoTickets: d.fotoTickets || '', fotosProducto: Array.isArray(d.fotosProducto) ? d.fotosProducto : (d.fotoProducto ? [d.fotoProducto] : []) };
+                mediaCache[id] = media;
+                return media;
+            } catch (e) { console.error('getMedia', e); return { fotoTickets: '', fotosProducto: [] }; }
+        }
+
+        async function verFotos(id, tipo) {
+            const record = adminRecordsMap[id] || allRecords.find(r => String(r.id) === String(id));
+            showToast('Cargando foto...', 'success');
+            const media = await getMedia(id, record);
+            if (tipo === 'tickets') {
+                if (media.fotoTickets) openModal(media.fotoTickets);
+                else showToast('Sin foto de tickets', 'error');
+            } else {
+                const fotos = media.fotosProducto || [];
+                if (fotos.length) openGaleria(fotos);
+                else showToast('Sin fotos de producto', 'error');
+            }
+        }
+
+        function openGaleria(fotos) {
+            const body = document.getElementById('galeriaBody');
+            body.innerHTML = fotos.map(src => `<img src="${src}" style="max-width:280px;max-height:80vh;border-radius:8px;cursor:pointer;border:2px solid #e8ecf1;" onclick="openModal('${src}')">`).join('');
+            document.getElementById('galeriaModal').classList.add('active');
+        }
+        function closeGaleria(e) { if (e && e.target !== document.getElementById('galeriaModal')) return; document.getElementById('galeriaModal').classList.remove('active'); }
 
         function openModal(src) { document.getElementById('modalImage').src = src; document.getElementById('imageModal').classList.add('active'); }
         function closeModal() { document.getElementById('imageModal').classList.remove('active'); }
@@ -1828,11 +1983,14 @@
             tbody.innerHTML = data.map(r => {
                 adminRecordsMap[r.id] = r;
                 const ticketsImg = r.fotoTickets || r.imagen;
-                const ticketsHtml = ticketsImg ? `<img src="${ticketsImg}" class="ticket-thumb" onclick="openModal('${ticketsImg}')">` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
+                const ticketsHtml = ticketsImg
+                    ? `<img src="${ticketsImg}" class="ticket-thumb" onclick="openModal('${ticketsImg}')">`
+                    : (r.hasTickets ? `<button class="response-btn" style="background:#455a64;margin:0;" onclick="verFotos('${r.id}','tickets')">📷 Ver</button>` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>');
                 const productoFotos = getFotosProducto(r);
+                const prodCount = productoFotos.length || r.productoCount || 0;
                 const productoHtml = productoFotos.length
                     ? `<div class="admin-producto-thumbs">${productoFotos.map(src => `<img src="${src}" class="ticket-thumb" onclick="openModal('${src}')">`).join('')}</div>`
-                    : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>';
+                    : (prodCount ? `<button class="response-btn" style="background:#455a64;margin:0;" onclick="verFotos('${r.id}','producto')">📷 Ver (${prodCount})</button>` : '<span style="color:#9e9e9e;font-size:0.8rem;">—</span>');
 
                 let tiendaOpts = '<option value="">Seleccionar...</option>';
                 TIENDAS.forEach(t => { tiendaOpts += `<option value="${t}" ${r.tienda===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`; });
@@ -1950,6 +2108,7 @@
             try {
                 if (firebaseReady) {
                     await fbRefs.deleteDoc(fbRefs.doc(db, 'registros', recordId));
+                    try { await fbRefs.deleteDoc(fbRefs.doc(db, 'registros_media', recordId)); } catch (e) {}
                 } else {
                     allRecords = allRecords.filter(r => String(r.id) !== String(recordId));
                     localStorage.setItem('sentRecords', JSON.stringify(allRecords));
@@ -2391,28 +2550,49 @@
         // ===== REPORTE DE CANCELACIONES POR VENDEDOR =====
         let chartsVendedores = {};
         let _vendedoresReportRows = [];
+        let vendFiltro = { desde: '', hasta: '', tiendas: [], vendedores: [] };
+        let _vendDisponibles = [];
 
         function renderReporteVendedores() {
             const tbody = document.getElementById('vendedoresTableBody');
             if (!tbody) return;
-            // Cancelaciones (motivo != 'pedido') del periodo; si hay una tienda abierta, solo esa.
-            let data = filterByPeriod(allRecords, currentPeriod).filter(r => r.motivo !== 'pedido');
-            if (selectedTienda) data = data.filter(r => r.tienda === selectedTienda);
+            // Base: cancelaciones (motivo != 'pedido') con los filtros propios del reporte.
+            let base = allRecords.filter(r => r.motivo !== 'pedido');
+            // Fecha: por día o rango; si no hay fechas, usa el período (Hoy/Semana/Mes).
+            if (vendFiltro.desde || vendFiltro.hasta) {
+                base = base.filter(r => {
+                    if (vendFiltro.desde && (r.fecha || '') < vendFiltro.desde) return false;
+                    if (vendFiltro.hasta && (r.fecha || '') > vendFiltro.hasta) return false;
+                    return true;
+                });
+            } else {
+                base = filterByPeriod(base, currentPeriod);
+            }
+            // Tiendas elegidas (una o varias): el reporte muestra solo esas tiendas.
+            if (vendFiltro.tiendas.length) base = base.filter(r => vendFiltro.tiendas.includes(r.tienda));
+            // Vendedores disponibles según fecha + tienda (para pintar los chips).
+            _vendDisponibles = [...new Set(base.map(r => vendedorKey(r.vendedor)).filter(Boolean))].sort();
+            vendFiltro.vendedores = vendFiltro.vendedores.filter(v => _vendDisponibles.includes(v));
+            renderVendFiltroChips();
+            // Vendedores elegidos (uno o varios).
+            let data = base;
+            if (vendFiltro.vendedores.length) data = data.filter(r => vendFiltro.vendedores.includes(vendedorKey(r.vendedor)));
             const map = {};
             data.forEach(r => {
                 const key = vendedorKey(r.vendedor);
                 if (!key) return; // ignorar registros sin vendedor
-                if (!map[key]) map[key] = { vendedor: key, cantidad: 0, monto: 0 };
+                if (!map[key]) map[key] = { vendedor: key, cantidad: 0, monto: 0, tiendas: {} };
                 map[key].cantidad++;
                 map[key].monto += parseFloat(r.monto) || 0;
+                if (r.tienda) map[key].tiendas[r.tienda] = true;
             });
             const rows = Object.values(map).sort((a, b) => b.cantidad - a.cantidad || b.monto - a.monto);
             _vendedoresReportRows = rows;
             const money = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             if (rows.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">👤</div><h4>Sin cancelaciones</h4><p>No hay cancelaciones con vendedor en este periodo</p></div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon">👤</div><h4>Sin cancelaciones</h4><p>No hay cancelaciones con vendedor para estos filtros</p></div></td></tr>';
             } else {
-                tbody.innerHTML = rows.map((r, i) => `<tr><td>${i + 1}</td><td style="font-weight:600;">${r.vendedor}</td><td>${r.cantidad}</td><td>${money(r.monto)}</td></tr>`).join('');
+                tbody.innerHTML = rows.map((r) => { const ts = Object.keys(r.tiendas || {}).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', '); return `<tr><td style="font-weight:600;">${r.vendedor}</td><td>${r.cantidad}</td><td>${money(r.monto)}</td><td>${ts}</td></tr>`; }).join('');
             }
             if (typeof Chart === 'undefined') return;
             const top = rows.slice(0, 15);
@@ -2435,12 +2615,92 @@
             });
         }
 
+        function renderVendFiltroChips() {
+            const tc = document.getElementById('vendTiendasChips');
+            if (tc) tc.innerHTML = TIENDAS.map(t => {
+                const sel = vendFiltro.tiendas.includes(t);
+                const label = t.charAt(0).toUpperCase() + t.slice(1);
+                return `<button type="button" class="vend-chip ${sel ? 'sel' : ''}" onclick="toggleVendTienda('${t}')">${label}</button>`;
+            }).join('');
+            renderVendDropdown();
+        }
+
+        function renderVendDropdown() {
+            const lbl = document.getElementById('vendDropdownLabel');
+            if (lbl) {
+                const n = vendFiltro.vendedores.length;
+                if (n === 0) lbl.textContent = 'Todos los vendedores';
+                else if (n <= 2) lbl.textContent = vendFiltro.vendedores.join(', ');
+                else lbl.textContent = vendFiltro.vendedores.slice(0, 2).join(', ') + ' +' + (n - 2);
+            }
+            renderVendDropdownList();
+        }
+
+        function renderVendDropdownList() {
+            const cont = document.getElementById('vendDropdownList');
+            if (!cont) return;
+            const sIn = document.getElementById('vendDropdownSearch');
+            const qn = (sIn ? sIn.value : '').toUpperCase().trim();
+            const items = _vendDisponibles.filter(v => !qn || v.includes(qn));
+            if (!items.length) { cont.innerHTML = '<div class="vend-dropdown-empty">Sin vendedores</div>'; return; }
+            cont.innerHTML = items.map(v => {
+                const idx = _vendDisponibles.indexOf(v);
+                const chk = vendFiltro.vendedores.includes(v) ? 'checked' : '';
+                return `<label class="vend-dropdown-item"><input type="checkbox" ${chk} onchange="toggleVendVendedor(${idx})"><span>${v}</span></label>`;
+            }).join('');
+        }
+
+        function toggleVendDropdown(e) {
+            if (e) e.stopPropagation();
+            const p = document.getElementById('vendDropdownPanel');
+            if (p) p.classList.toggle('open');
+        }
+
+        function vendSelectAll(all) {
+            vendFiltro.vendedores = all ? _vendDisponibles.slice() : [];
+            renderReporteVendedores();
+        }
+
+        document.addEventListener('click', function (e) {
+            const dd = document.getElementById('vendDropdown');
+            const p = document.getElementById('vendDropdownPanel');
+            if (dd && p && !dd.contains(e.target)) p.classList.remove('open');
+        });
+
+        function toggleVendTienda(t) {
+            const i = vendFiltro.tiendas.indexOf(t);
+            if (i >= 0) vendFiltro.tiendas.splice(i, 1); else vendFiltro.tiendas.push(t);
+            renderReporteVendedores();
+        }
+
+        function toggleVendVendedor(idx) {
+            const v = _vendDisponibles[idx];
+            if (v == null) return;
+            const i = vendFiltro.vendedores.indexOf(v);
+            if (i >= 0) vendFiltro.vendedores.splice(i, 1); else vendFiltro.vendedores.push(v);
+            renderReporteVendedores();
+        }
+
+        function setVendFecha() {
+            const d = document.getElementById('vendDesde'), h = document.getElementById('vendHasta');
+            vendFiltro.desde = d ? d.value : '';
+            vendFiltro.hasta = h ? h.value : '';
+            renderReporteVendedores();
+        }
+
+        function limpiarVendFiltros() {
+            vendFiltro = { desde: '', hasta: '', tiendas: [], vendedores: [] };
+            const d = document.getElementById('vendDesde'); if (d) d.value = '';
+            const h = document.getElementById('vendHasta'); if (h) h.value = '';
+            renderReporteVendedores();
+        }
+
         function exportVendedoresExcel() {
             const rows = _vendedoresReportRows || [];
             if (!rows.length) { showToast('No hay datos de vendedores para exportar', 'error'); return; }
-            const ws_data = [['Vendedor', 'Cancelaciones', 'Monto Cancelado'], ...rows.map(r => [r.vendedor, r.cantidad, +r.monto.toFixed(2)])];
+            const ws_data = [['Vendedor', 'Cancelaciones', 'Monto Cancelado', 'Tienda(s)'], ...rows.map(r => [r.vendedor, r.cantidad, +r.monto.toFixed(2), Object.keys(r.tiendas || {}).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')])];
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
-            ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 18 }];
+            ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 24 }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Por Vendedor');
             XLSX.writeFile(wb, `Reporte_Vendedores_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -2525,6 +2785,9 @@
                     snapshot.forEach(doc => {
                         deletePromises.push(fbRefs.deleteDoc(doc.ref));
                     });
+                    // Borrar también las fotos (colección registros_media)
+                    const mediaSnap = await fbRefs.getDocs(fbRefs.collection(db, 'registros_media'));
+                    mediaSnap.forEach(doc => { deletePromises.push(fbRefs.deleteDoc(doc.ref)); });
                     if (deletePromises.length > 0) {
                         await Promise.all(deletePromises);
                     }

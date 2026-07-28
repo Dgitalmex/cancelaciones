@@ -6,7 +6,7 @@
     <title>CANCELACIONES · Captura</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, limit, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCGoj6svi5Na7xoZU9asJZ0xf4qBd37ys8",
@@ -28,7 +28,7 @@
         });
 
         window.firebaseDB = db;
-        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy };
+        window.firebaseRefs = { collection, addDoc, getDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, onSnapshot, query, orderBy, limit };
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -1172,18 +1172,29 @@
                     }
                 }
 
-                // Save records to Firestore with Base64 images
-                const recordsToSave = currentRows.map(row => {
-                    const { id, ...rest } = row;
-                    return { ...rest, sentAt: new Date().toISOString() };
-                });
-
+                // Guardar en Firestore: el texto va en 'registros' (ligero, carga rápido)
+                // y las fotos en 'registros_media' (se descargan solo al abrirlas).
                 if (firebaseReady) {
-                    for (const record of recordsToSave) {
-                        await fbRefs.addDoc(fbRefs.collection(db, 'registros'), record);
+                    for (const row of currentRows) {
+                        const fotosProducto = getFotosProducto(row);
+                        const light = {
+                            fecha: row.fecha, tienda: row.tienda, folio: row.folio,
+                            monto: row.monto, motivo: row.motivo, vendedor: row.vendedor || '',
+                            notas: row.notas, sentAt: new Date().toISOString(),
+                            hasTickets: !!row.fotoTickets, productoCount: fotosProducto.length
+                        };
+                        const ref = await fbRefs.addDoc(fbRefs.collection(db, 'registros'), light);
+                        if (row.fotoTickets || fotosProducto.length) {
+                            try {
+                                await fbRefs.setDoc(fbRefs.doc(db, 'registros_media', ref.id), { fotoTickets: row.fotoTickets || '', fotosProducto: fotosProducto });
+                            } catch (e) { console.error('Error guardando fotos:', e); showToast('⚠️ Se guardó el ticket pero la foto falló (revisa permisos de registros_media en Firebase)', 'error'); }
+                        }
                     }
                 } else {
-                    const localRecords = recordsToSave.map(r => ({ id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,8), ...r }));
+                    const localRecords = currentRows.map(row => {
+                        const { id, ...rest } = row;
+                        return { id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), ...rest, sentAt: new Date().toISOString() };
+                    });
                     allRecords.push(...localRecords);
                     localStorage.setItem('sentRecords', JSON.stringify(allRecords));
                 }
