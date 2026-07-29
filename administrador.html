@@ -523,6 +523,10 @@
 .vend-dropdown-item:hover { background:#f2f5fb; }
 .vend-dropdown-item input { width:16px; height:16px; accent-color:#1a237e; }
 .vend-dropdown-empty { padding:10px; font-size:0.8rem; color:#9aa3b2; text-align:center; }
+/* Botones del filtro por Respuesta */
+.resp-btn { padding:9px 16px; border:2px solid #e8ecf1; background:white; color:#6b7c93; border-radius:8px; cursor:pointer; font-size:0.78rem; font-weight:600; transition:all 0.3s; text-transform:uppercase; letter-spacing:0.5px; }
+.resp-btn.active { background:#1a237e; color:white; border-color:#1a237e; }
+.resp-btn:hover:not(.active) { border-color:#1a237e; color:#1a237e; }
 
     </style>
 <base target="_blank">
@@ -671,6 +675,9 @@
         .vend-dropdown-actions button:hover { background:#242424; }
         .vend-dropdown-item { color:#dcdcdc; }
         .vend-dropdown-item:hover { background:#242424; }
+        .resp-btn { background:#171717; color:#9a9a9a; border-color:#333; }
+        .resp-btn:hover:not(.active) { border-color:#5c6bc0; color:#c5cae9; }
+        .resp-btn.active { background:#3949ab; border-color:#3949ab; color:#fff; }
     </style>
 
     <div id="sistemaApagadoOverlay">
@@ -773,6 +780,15 @@
                     <button class="period-btn" onclick="setPeriod('week')">Semana</button>
                     <button class="period-btn" onclick="setPeriod('month')">Mes</button>
                 </div>
+                <div class="period-selector" id="respuestaSelector" style="margin-top:2px;">
+                    <span style="align-self:center;font-size:0.72rem;color:#6b7c93;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-right:2px;">Respuesta:</span>
+                    <button class="resp-btn active" onclick="setRespuestaFiltro('cancelado', this)">❌ Cancelado</button>
+                    <button class="resp-btn" onclick="setRespuestaFiltro('pendiente', this)">🕓 Pendiente</button>
+                    <button class="resp-btn" onclick="setRespuestaFiltro('cobrado', this)">💰 Cobrado</button>
+                    <button class="resp-btn" onclick="setRespuestaFiltro('rechazado', this)">🚫 Rechazado</button>
+                    <button class="resp-btn" onclick="setRespuestaFiltro('todos', this)">Todos</button>
+                </div>
+                <div style="font-size:0.72rem;color:#8e9aaf;margin:-8px 0 16px;">Los reportes de cancelaciones muestran solo los tickets con esta Respuesta. Pendiente = seguimiento o sin responder. (Los reportes de Pedidos no se ven afectados.)</div>
 
                 <!-- Vista principal: tarjetas por tienda -->
                 <div id="tiendaGridView">
@@ -1072,6 +1088,7 @@
 
         let currentRows = [];
         let currentPeriod = 'day';
+        let respuestaFiltro = 'cancelado';   // filtro global por el campo Respuesta
         let charts = {};
         let isAdminLogged = false;
         let firebaseReady = false;
@@ -1816,6 +1833,20 @@
             } else { showToast('Contraseña incorrecta', 'error'); }
         }
 
+        // ¿el ticket pasa el filtro del campo Respuesta? (Pendiente = seguimiento o sin responder)
+        function pasaRespuesta(r) {
+            if (respuestaFiltro === 'todos') return true;
+            if (respuestaFiltro === 'pendiente') return !r.respuesta || r.respuesta === 'seguimiento';
+            return r.respuesta === respuestaFiltro;
+        }
+
+        function setRespuestaFiltro(v, btn) {
+            respuestaFiltro = v;
+            document.querySelectorAll('.resp-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            updateAdmin();
+        }
+
         function setPeriod(p) {
             currentPeriod = p;
             document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -1906,7 +1937,7 @@
             grid.innerHTML = TIENDAS.map(t => {
                 const recs = getTiendaRecords(t);
                 const total = recs.reduce((s,r) => s + (parseFloat(r.monto)||0), 0);
-                const cancelaciones = recs.filter(r => r.motivo !== 'pedido').length;
+                const cancelaciones = recs.filter(r => r.motivo !== 'pedido' && pasaRespuesta(r)).length;
                 const pedidos = recs.filter(r => r.motivo === 'pedido').length;
                 const pendientes = recs.filter(r => !['cancelado','cobrado','rechazado'].includes(r.respuesta)).length;
                 const color = tiendaColor(t);
@@ -1963,7 +1994,7 @@
 
         function renderStats(data) {
             const total = data.reduce((s,r) => s + (parseFloat(r.monto)||0), 0);
-            const cancelaciones = data.filter(r => r.motivo !== 'pedido').length;
+            const cancelaciones = data.filter(r => r.motivo !== 'pedido' && pasaRespuesta(r)).length;
             const pedidos = data.filter(r => r.motivo === 'pedido').length;
             const tiendas = [...new Set(data.map(r => r.tienda).filter(Boolean))].length;
             document.getElementById('statsGrid').innerHTML = `
@@ -2402,12 +2433,12 @@
         function renderCharts(data) {
             Object.values(charts).forEach(c => { if(c) c.destroy(); });
             const cancelByTienda = {}; TIENDAS.forEach(t => cancelByTienda[t] = 0);
-            data.filter(r => r.motivo !== 'pedido').forEach(r => { if(r.tienda) cancelByTienda[r.tienda] = (cancelByTienda[r.tienda]||0) + 1; });
+            data.filter(r => r.motivo !== 'pedido' && pasaRespuesta(r)).forEach(r => { if(r.tienda) cancelByTienda[r.tienda] = (cancelByTienda[r.tienda]||0) + 1; });
             charts.cancelaciones = new Chart(document.getElementById('chartCancelaciones'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Cancelaciones', data: TIENDAS.map(t => cancelByTienda[t]), backgroundColor: 'rgba(26, 35, 126, 0.75)', borderColor: '#1a237e', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } });
             const montoByTienda = {}; TIENDAS.forEach(t => montoByTienda[t] = 0);
-            data.filter(r => r.motivo !== 'pedido').forEach(r => { if(r.tienda) montoByTienda[r.tienda] = (montoByTienda[r.tienda]||0) + (parseFloat(r.monto)||0); });
+            data.filter(r => r.motivo !== 'pedido' && pasaRespuesta(r)).forEach(r => { if(r.tienda) montoByTienda[r.tienda] = (montoByTienda[r.tienda]||0) + (parseFloat(r.monto)||0); });
             charts.montos = new Chart(document.getElementById('chartMontos'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Monto Cancelado ($)', data: TIENDAS.map(t => montoByTienda[t].toFixed(2)), backgroundColor: 'rgba(198, 40, 40, 0.7)', borderColor: '#c62828', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-            const motivoCount = {}; MOTIVOS.forEach(m => motivoCount[m] = 0); data.filter(r => r.motivo !== 'pedido' && r.motivo).forEach(r => { motivoCount[r.motivo] = (motivoCount[r.motivo]||0) + 1; });
+            const motivoCount = {}; MOTIVOS.forEach(m => motivoCount[m] = 0); data.filter(r => r.motivo !== 'pedido' && r.motivo && pasaRespuesta(r)).forEach(r => { motivoCount[r.motivo] = (motivoCount[r.motivo]||0) + 1; });
             charts.motivos = new Chart(document.getElementById('chartMotivos'), { type: 'doughnut', data: { labels: MOTIVOS.filter(m => m !== 'pedido').map(m => m.charAt(0).toUpperCase()+m.slice(1)), datasets: [{ data: MOTIVOS.filter(m => m !== 'pedido').map(m => motivoCount[m]), backgroundColor: ['#1a237e','#283593','#3949ab','#5c6bc0','#7986cb','#9fa8da'], borderWidth: 2, borderColor: '#ffffff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } } });
             const pedidoByTienda = {}; TIENDAS.forEach(t => pedidoByTienda[t] = 0); data.filter(r => r.motivo === 'pedido').forEach(r => { if(r.tienda) pedidoByTienda[r.tienda] = (pedidoByTienda[r.tienda]||0) + (parseFloat(r.monto)||0); });
             charts.pedidos = new Chart(document.getElementById('chartPedidos'), { type: 'bar', data: { labels: TIENDAS.map(t => t.charAt(0).toUpperCase()+t.slice(1)), datasets: [{ label: 'Monto Pedido ($)', data: TIENDAS.map(t => pedidoByTienda[t].toFixed(2)), backgroundColor: 'rgba(46, 125, 50, 0.7)', borderColor: '#2e7d32', borderWidth: 1, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
@@ -2474,7 +2505,7 @@
 
             // Datos del período global (Hoy / Semana / Mes), TODAS las tiendas
             const data = filterByPeriod(allRecords, currentPeriod);
-            const cancelaciones = data.filter(r => r.motivo !== 'pedido');
+            const cancelaciones = data.filter(r => r.motivo !== 'pedido' && pasaRespuesta(r));
             const pedidos = data.filter(r => r.motivo === 'pedido');
 
             // Acumular por tienda
@@ -2557,7 +2588,7 @@
             const tbody = document.getElementById('vendedoresTableBody');
             if (!tbody) return;
             // Base: cancelaciones (motivo != 'pedido') con los filtros propios del reporte.
-            let base = allRecords.filter(r => r.motivo !== 'pedido');
+            let base = allRecords.filter(r => r.motivo !== 'pedido' && pasaRespuesta(r));
             // Fecha: por día o rango; si no hay fechas, usa el período (Hoy/Semana/Mes).
             if (vendFiltro.desde || vendFiltro.hasta) {
                 base = base.filter(r => {
